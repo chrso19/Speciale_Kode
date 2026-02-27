@@ -1,3 +1,16 @@
+def num_folds(data_series, training_window, forecast_horizon):
+    """
+    Calculates the number of folds that the training and validation should be split into.
+
+    Args:
+    data_series: The full dataset used for the model
+    training_window: The number of hours the model is trained on
+    forecast_horizon: The number of hours the model will forecast
+    """
+    num_folds = (len(data_series) - training_window) // forecast_horizon
+    
+    return num_folds
+
 def split_dataset(data_series, fold_num, training_window, forecast_horizon):
     """
     Splits the full dataset based on the fold number, the training window, and the forecast horizon.
@@ -10,7 +23,7 @@ def split_dataset(data_series, fold_num, training_window, forecast_horizon):
     """
     start = 0
 
-    train_data = data_series[start:(fold_num + 1) * training_window]
-    val_data = data_series[(fold_num + 1) * training_window:(fold_num + 1) * training_window + forecast_horizon]
+    train_data = data_series[start:fold_num * forecast_horizon + training_window]
+    val_data = data_series[fold_num * forecast_horizon + training_window:(fold_num + 1) * forecast_horizon + training_window]
 
     return train_data, val_data
