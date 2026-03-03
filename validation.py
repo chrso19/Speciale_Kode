@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, mean_absolute_percentage_error
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -24,6 +24,7 @@ def walk_forward_validation(
     all_actuals = []
     all_fold_rmse = []
     all_fold_mae = []
+    all_fold_mape = []
 
     if expanding:
         num_folds = (len(data_series) - training_window) // forecast_horizon
@@ -62,23 +63,28 @@ def walk_forward_validation(
 
         fold_rmse = np.sqrt(mean_squared_error(actuals, predictions))
         fold_mae = mean_absolute_error(actuals, predictions)
+        fold_mape = mean_absolute_percentage_error(actuals, predictions)
 
         all_fold_rmse.append(fold_rmse)
         all_fold_mae.append(fold_mae)
+        all_fold_mape.append(fold_mape)
         all_predictions.extend(predictions)
         all_actuals.extend(actuals)
 
-        print(f"  Fold RMSE: {fold_rmse:.2f}, MAE: {fold_mae:.2f}\n")
+        print(f"  Fold RMSE: {fold_rmse:.2f}, MAE: {fold_mae:.2f}, MAPE: {fold_mape:.2f}\n")
 
     overall_rmse = np.sqrt(mean_squared_error(all_actuals, all_predictions))
     overall_mae = mean_absolute_error(all_actuals, all_predictions)
+    overall_mape = mean_absolute_percentage_error(all_actuals, all_predictions)
 
     print(f"Overall RMSE: {overall_rmse:.2f}")
     print(f"Overall MAE: {overall_mae:.2f}")
+    print(f"Overall MAPE: {overall_mape:.2f}")
     print(f"Average Fold RMSE: {np.mean(all_fold_rmse):.2f} (+/- {np.std(all_fold_rmse):.2f})")
     print(f"Average Fold MAE: {np.mean(all_fold_mae):.2f} (+/- {np.std(all_fold_mae):.2f})")
+    print(f"Average Fold MAPE: {np.mean(all_fold_mape):.2f} (+/- {np.std(all_fold_mape):.2f})")
 
-    return all_predictions, all_actuals, all_fold_rmse, all_fold_mae
+    return all_predictions, all_actuals, all_fold_rmse, all_fold_mae, all_fold_mape
 
 def plot_walk_forward_results(
         predictions, 
