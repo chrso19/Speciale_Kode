@@ -6,6 +6,14 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
+def smape(actuals, predictions):
+    # Symmetric MAPE
+    actuals = np.array(actuals)
+    predictions = np.array(predictions)
+    denominator = (np.abs(actuals) + np.abs(predictions)) / 2
+    mask = denominator > 0
+    return np.mean(np.abs(actuals[mask] - predictions[mask]) / denominator[mask]) * 100
+
 def walk_forward_validation(
         data_series,
         predict_fn,
@@ -63,7 +71,7 @@ def walk_forward_validation(
 
         fold_rmse = np.sqrt(mean_squared_error(actuals, predictions))
         fold_mae = mean_absolute_error(actuals, predictions)
-        fold_mape = mean_absolute_percentage_error(actuals, predictions)
+        fold_mape = smape(actuals, predictions)
 
         all_fold_rmse.append(fold_rmse)
         all_fold_mae.append(fold_mae)
@@ -71,18 +79,18 @@ def walk_forward_validation(
         all_predictions.extend(predictions)
         all_actuals.extend(actuals)
 
-        print(f"  Fold RMSE: {fold_rmse:.2f}, MAE: {fold_mae:.2f}, MAPE: {fold_mape:.2f}\n")
+        print(f"  Fold RMSE: {fold_rmse:.2f}, MAE: {fold_mae:.2f}, SMAPE: {fold_mape:.2f}\n")
 
     overall_rmse = np.sqrt(mean_squared_error(all_actuals, all_predictions))
     overall_mae = mean_absolute_error(all_actuals, all_predictions)
-    overall_mape = mean_absolute_percentage_error(all_actuals, all_predictions)
+    overall_mape = smape(all_actuals, all_predictions)
 
     print(f"Overall RMSE: {overall_rmse:.2f}")
     print(f"Overall MAE: {overall_mae:.2f}")
     print(f"Overall MAPE: {overall_mape:.2f}")
     print(f"Average Fold RMSE: {np.mean(all_fold_rmse):.2f} (+/- {np.std(all_fold_rmse):.2f})")
     print(f"Average Fold MAE: {np.mean(all_fold_mae):.2f} (+/- {np.std(all_fold_mae):.2f})")
-    print(f"Average Fold MAPE: {np.mean(all_fold_mape):.2f} (+/- {np.std(all_fold_mape):.2f})")
+    print(f"Average Fold SMAPE: {np.mean(all_fold_mape):.2f} (+/- {np.std(all_fold_mape):.2f})")
 
     return all_predictions, all_actuals, all_fold_rmse, all_fold_mae, all_fold_mape
 
