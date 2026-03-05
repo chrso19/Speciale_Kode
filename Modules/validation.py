@@ -14,6 +14,16 @@ def smape(actuals, predictions):
     mask = denominator > 0
     return np.mean(np.abs(actuals[mask] - predictions[mask]) / denominator[mask]) * 100
 
+# Rettelser til validation:
+#   - Skal være strided - så den springer 4 uger frem for hver fold
+#                   Eventuelt mulighed for at definere ens stride
+#   - Skal teste på to års data frem for et enkelt år for hver fold 
+#                   training window = 2 * 8760 (17520)
+#   - Skal gemme usikkerheder for hver døgn i den forudsagte uge
+#   - Skal kunne fodres med ny data undervejs (kun pris og vejr)
+#   - Skal forudsige for dag 2 til og med dag 8
+
+# Skal skrive en funktion til at teste 
 def walk_forward_validation(
         data_series,
         predict_fn,
