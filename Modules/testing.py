@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from validation import smape
 import torch
+import matplotlib.pyplot as plt
 
 def predict_with_deep_model(model, known_data, weather_forecast, predict_horizon, 
                              train_mean, train_std, sequence_length=24,
@@ -221,3 +222,65 @@ def final_model_evaluation(
             all_fold_rmse, all_fold_mae, all_fold_smape,
             all_daily_rmse, all_daily_mae, all_daily_smape)
 
+def plot_final_evaluation(
+        predictions,
+        actuals,
+        title,
+        predict_horizon=168,
+):
+    plt.figure(figsize=(15, 6))
+
+    plt.plot(actuals, label='Actual', alpha=0.7, linewidth=2, color='blue')
+    plt.plot(predictions, label='Predicted', alpha=0.7, linewidth=2, color='orange')
+
+    # Vertical lines to separate evaluation windows
+    for i in range(0, len(predictions), predict_horizon):
+        plt.axvline(x=i, color='gray', linestyle='--', alpha=0.3)
+
+    plt.xlabel('Time Step')
+    plt.ylabel('Electricity Price (DKK)')
+    plt.title(title)
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+def plot_final_evaluation2(
+    predictions,
+    actuals,
+    title,
+    train_data,
+    test_data,
+    forecast_horizon=192,
+    predict_horizon=168,
+):
+    plt.figure(figsize=(15, 6))
+
+    # Plot training data in gray
+    plt.plot(train_data.iloc[:, 0].values,
+             label='Training Data',
+             alpha=0.5,
+             linewidth=1,
+             color='gray')
+
+    # Offset predictions and actuals to start after training data
+    train_len = len(train_data)
+    x_axis = range(train_len, train_len + len(predictions))
+
+    plt.plot(x_axis, actuals, label='Actual', alpha=0.7, linewidth=2, color='blue')
+    plt.plot(x_axis, predictions, label='Predicted', alpha=0.7, linewidth=2, color='orange')
+
+    # Vertical lines to separate evaluation windows
+    for i in range(train_len, train_len + len(predictions), predict_horizon):
+        plt.axvline(x=i, color='gray', linestyle='--', alpha=0.3)
+
+    # Vertical line to separate training from test period
+    plt.axvline(x=train_len, color='black', linestyle='-', alpha=0.5, label='Train/Test split')
+
+    plt.xlabel('Time Step')
+    plt.ylabel('Electricity Price (DKK)')
+    plt.title(title)
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()

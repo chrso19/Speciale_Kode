@@ -62,8 +62,8 @@ def read_data(file_name: str):
     df.insert(0, "Time", temp_list, True)
     df = df.drop("TimeUTC", axis = 1)
 
-    df['TotalPower_lag1'] = df['TotalPower'].shift(1)  # value from 1 hour ago
-    df['TotalPower_lag24'] = df['TotalPower'].shift(24)  # value from 24 hours ago
+    df['TotalProduction_lag1'] = df['TotalProduction'].shift(1)  # value from 1 hour ago
+    df['TotalProduction_lag24'] = df['TotalProduction'].shift(24)  # value from 24 hours ago
     df['Price_lag1'] = df['DKPrice'].shift(1)
     df['Price_lag24'] = df['DKPrice'].shift(24)
 
@@ -85,8 +85,10 @@ def read_data(file_name: str):
     # Splitting between initial train and test set for DK1
     DK1_train_set = df_DK1.loc[df_DK1['Time'] < pd.Timestamp('2025-01-01')]
     DK1_train_set = DK1_train_set.drop('Time', axis = 1)
+    DK1_train_weather = DK1_train_set[['WindSpeed','Radiation']].copy()
     DK1_test_set = df_DK1.loc[df_DK1['Time'] >= pd.Timestamp('2025-01-01')]
     DK1_test_set = DK1_test_set.drop('Time', axis = 1)
+    DK1_test_weather = DK1_test_set[['WindSpeed','Radiation']].copy()
 
     # Printing the shape for training and test date for DK1
     print(f"Training data shape (DK1): {DK1_train_set.shape}")
@@ -96,12 +98,15 @@ def read_data(file_name: str):
     # Splitting between initial train and test set for DK2
     DK2_train_set = df_DK2.loc[df_DK1['Time'] < pd.Timestamp('2025-01-01')]
     DK2_train_set = DK2_train_set.drop('Time', axis = 1)
+    DK2_train_weather = DK2_train_set[['WindSpeed','Radiation']].copy()
     DK2_test_set = df_DK2.loc[df_DK1['Time'] >= pd.Timestamp('2025-01-01')]
     DK2_test_set = DK2_test_set.drop('Time', axis = 1)
+    DK2_test_weather = DK2_test_set[['WindSpeed','Radiation']].copy()
 
     # Printing the shape for training and test date for DK2
     print(f"Training data shape (DK2): {DK2_train_set.shape}")
     print(f"Test data shape (DK2): {DK2_test_set.shape}")
     print(f"Test set fraction (DK2): {len(DK2_test_set)/len(DK2_train_set):.2%}")
 
-    return DK1_train_set, DK1_test_set, DK2_train_set, DK2_test_set
+    return (DK1_train_set, DK1_test_set, DK2_train_set, DK2_test_set, 
+            DK1_train_weather, DK1_test_weather, DK2_train_weather, DK2_test_weather)

@@ -47,24 +47,24 @@ def walk_forward_validation(
     predict_horizon = forecast_horizon - known_hours
 
     if expanding:
-        num_folds = (len(data_series) - training_window) // (stride * (forecast_horizon - known_hours))
+        num_folds = (len(data_series) - training_window) // (stride * predict_horizon)
     else:
-        num_folds = (len(data_series) - training_window - forecast_horizon) // (stride * (forecast_horizon - known_hours))
+        num_folds = (len(data_series) - training_window - forecast_horizon) // (stride * predict_horizon)
 
     print(f"Total folds: {num_folds}")
     print(f"Training window: {training_window} hours")
     print(f"Forecast horizon: {forecast_horizon} hours")
     print(f"Electricity price is known for: {known_hours} hours")
     print(f"Predict horizon is from hour {known_hours + 1} to hour { forecast_horizon}")
-    print(f"Stride: {stride} weeks or {stride * forecast_horizon} hours")
+    print(f"Stride: {stride} weeks or {stride * predict_horizon} hours")
     print(f"Mode: {'Expanding' if expanding else 'Sliding'} window\n")
 
     for fold in range(num_folds):
         if expanding:
             train_start = 0
-            train_end = training_window + fold * forecast_horizon * stride
+            train_end = training_window + fold * predict_horizon * stride
         else:
-            train_start = fold * forecast_horizon * stride
+            train_start = fold * predict_horizon* stride
             train_end = train_start + training_window
 
         val_start = train_end
@@ -108,7 +108,7 @@ def walk_forward_validation(
         all_predictions.extend(predictions)
         all_actuals.extend(actuals)
 
-        n_days = forecast_horizon // 24  # 7
+        n_days = predict_horizon // 24  # 7
         fold_daily_rmse = []
         fold_daily_mae = []
         fold_daily_smape = []
@@ -164,28 +164,62 @@ def plot_walk_forward_results(
         actuals, 
         title,
         training_window = 17520, # 365 days of data - hours of data trained on
-        forecast_horizon = 168, # 1 week - hours of data predicted
+        predict_horizon = 192, # 1 week - hours of data predicted
         ):
     """
     Plot walk-forward validation results.
     """
     plt.figure(figsize=(15, 6))
     
-    # Create x-axis (fold numbers repeated for each prediction in that fold)
-    x = []
-    fold_num = 0
-    for i in range(len(predictions)):
-        if i % (forecast_horizon) == 0 and i > 0:
-            fold_num += 1
-        x.append(fold_num)
-    
     plt.plot(actuals, label='Actual', alpha=0.7, linewidth=2)
     plt.plot(predictions, label='Predicted', alpha=0.7, linewidth=2)
     
-    # Add vertical lines to separate folds
-    for i in range(0, len(predictions), forecast_horizon):
+    # Vertical lines to separate folds
+    for i in range(0, len(predictions), predict_horizon):
         plt.axvline(x=i, color='gray', linestyle='--', alpha=0.3)
     
+    plt.xlabel('Time Step')
+    plt.ylabel('Electricity Price (DKK)')
+    plt.title(title)
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+def plot_walk_forward_results2(
+    predictions, 
+    actuals, 
+    title,
+    data_series,
+    training_window=17520,
+    predict_horizon=168,
+    stride=4,             # number of weeks between folds
+    forecast_horizon=192, # total hours per fold including known hours
+    ):
+
+    plt.figure(figsize=(15, 6))
+
+    # Only plot up to training window for gray background
+    plt.plot(data_series.iloc[:training_window, 0].values,  # stop at training window
+             label='Training Data', 
+             alpha=0.5, 
+             linewidth=1, 
+             color='gray')
+
+    # Offset predictions and actuals to start after training window
+    x_axis = range(training_window, training_window + len(predictions))
+
+    plt.plot(x_axis, actuals, label='Actual', alpha=0.7, linewidth=2, color='blue')
+    plt.plot(x_axis, predictions, label='Predicted', alpha=0.7, linewidth=2, color='orange')
+
+    # Vertical lines every stride * forecast_horizon steps to separate folds
+    fold_step = stride * forecast_horizon  # 4 * 192 = 768 hours between folds
+    for i in range(training_window, training_window + len(predictions), fold_step):
+        plt.axvline(x=i, color='gray', linestyle='--', alpha=0.3)
+
+    # Vertical line to separate training from validation
+    plt.axvline(x=training_window, color='black', linestyle='-', alpha=0.5, label='Train/Val split')
+
     plt.xlabel('Time Step')
     plt.ylabel('Electricity Price (DKK)')
     plt.title(title)
