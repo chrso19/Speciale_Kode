@@ -31,7 +31,7 @@ def walk_forward_validation(
     training_window: number of hours each fold is trained on
     forecast_horizon: number of hours that the price should be forecasted
     known hours: number of hours in the future with an already forecasted price
-    strie: number of weeks that should be skipped between each fold
+    stride: number of weeks that should be skipped between each fold
     expanding: if True, uses expanding window; if False, uses sliding window
     """
     all_predictions = []
@@ -59,7 +59,7 @@ def walk_forward_validation(
     print(f"Stride: {stride} weeks or {stride * predict_horizon} hours")
     print(f"Mode: {'Expanding' if expanding else 'Sliding'} window\n")
 
-    for fold in range(num_folds):
+    for fold in range(num_folds + 1):
         if expanding:
             train_start = 0
             train_end = training_window + fold * predict_horizon * stride
@@ -71,9 +71,10 @@ def walk_forward_validation(
         val_end = val_start + forecast_horizon
 
         if val_end > len(data_series):
+            print(f"Fold {fold + 1}/{num_folds + 1}: Skipped (not enough data)")
             break
 
-        print(f"Fold {fold + 1}/{num_folds}")
+        print(f"Fold {fold + 1}/{num_folds + 1}")
 
         train_data = data_series.iloc[train_start:train_end]
         
