@@ -1,9 +1,10 @@
 # Importing packages
 import os
+import sys
 import pandas as pd
 from datetime import datetime
 
-def read_data(file_name: str):
+def read_data(file_name: str, lag:int = 24):
     """This function does the following:
     - Gets the working directory of this script, goes to the parent directory,
     then adds the "Data" folder to the end and then adds the file_name from the 
@@ -20,6 +21,7 @@ def read_data(file_name: str):
 
     Arguments:
     file_name: The name of the csv file as a string.
+    lag: Maximum lag value to use, should be 24 or 168 - 24 is the default value
     """
     # Getting the file path
     notebook_dir = os.path.dirname(os.path.abspath(__file__))       # read_data.py directory
@@ -81,12 +83,21 @@ def read_data(file_name: str):
     df.insert(0, "Time", temp_list, True)
     df = df.drop("TimeUTC", axis = 1)
 
+    if not(lag == 24 or lag == 168):
+        print("Lag value must be 24 or 168. Stopping code.")
+        sys.exit()
+
     df['TotalProduction_lag1'] = df['TotalProduction'].shift(1)  # value from 1 hour ago
     df['TotalProduction_lag24'] = df['TotalProduction'].shift(24)  # value from 24 hours ago
     df['GrossCon_lag1'] = df['GrossCon'].shift(1)
     df['GrossCon_lag24'] = df['GrossCon'].shift(24)
     df['Price_lag1'] = df['DKPrice'].shift(1)
     df['Price_lag24'] = df['DKPrice'].shift(24)
+
+    if lag == 168:
+        df['TotalProduction_lag168'] = df['TotalProduction'].shift(168)  # value from 168 hours ago
+        df['GrossCon_lag168'] = df['GrossCon'].shift(168)
+        df['Price_lag168'] = df['DKPrice'].shift(168)
 
     # Dropping NaN rows
     df = df.dropna()        # Drops the first max-lag-number of rows in the dataset
