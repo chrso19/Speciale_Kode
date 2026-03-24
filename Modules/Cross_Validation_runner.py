@@ -3,8 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from split_dataset import hyper_param_split
-from week_predictions import get_predictions
+from week_predictions_copy import get_predictions
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 
 def smape(y_true, y_pred):
@@ -91,10 +92,15 @@ def run_cross_validation(
             val_start=fold["val_start"],
             val_end=fold["val_end"],
             forecast_horizon=168,
-            fitted_scaler=scaler if scaler else None
+            fitted_scaler=scaler if use_scaler else None,
+            persist_offset=168,      # weekly seasonality
+            persist_n_offsets=3,     # average last 2 equivalent weeks
+            persist_agg_func=np.mean,
         )
 
-        fold_week_smapes = []
+        fold_week_rmse = []
+        fold_week_mae = []
+        fold_week_smape = []
 
         for week_no, week_pred_df in preds_by_week.items():
             week_eval = week_pred_df.merge(
@@ -107,33 +113,68 @@ def run_cross_validation(
             week_eval["week"] = week_no
             week_eval["Date"] = week_eval["Time"].dt.floor("D")
 
+            week_rmse = np.sqrt(mean_squared_error(
+                week_eval[target_col].values,
+                week_eval["Prediction"].values)
+                )
+            week_mae = mean_absolute_error(
+                week_eval[target_col].values,
+                week_eval["Prediction"].values
+            )
             week_smape = smape(
                 week_eval[target_col].values,
                 week_eval["Prediction"].values
             )
 
-            fold_week_smapes.append(week_smape)
+            fold_week_rmse.append(week_rmse)
+            fold_week_mae.append(week_mae)
+            fold_week_smape.append(week_smape)
 
             weekly_results.append({
                 "fold": fold_no,
                 "week": week_no,
                 "week_start": week_eval["Time"].min(),
                 "week_end": week_eval["Time"].max(),
-                "weekly_smape": week_smape
+                "weekly_rmse": week_rmse,
+                "weekly_mae": week_mae,
+                "weekly_smape": week_smape,
             })
 
+            daily_rmse_df = (
+                week_eval.groupby("Date")
+                .apply(lambda g: np.sqrt(mean_squared_error(g[target_col].values, g["Prediction"].values)), include_groups = False)
+                .reset_index(name="daily_rmse")
+            )
+            daily_mae_df = (
+                week_eval.groupby("Date")
+                .apply(lambda g: mean_absolute_error(g[target_col].values, g["Prediction"].values), include_groups=False)
+                .reset_index(name="daily_mae")
+            )
             daily_smape_df = (
                 week_eval.groupby("Date")
                 .apply(lambda g: smape(g[target_col].values, g["Prediction"].values), include_groups=False)
                 .reset_index(name="daily_smape")
             )
+            daily_rmse_df["fold"] = fold_no
+            daily_rmse_df["week"] = week_no
+            daily_mae_df["fold"] = fold_no
+            daily_mae_df["week"] = week_no
             daily_smape_df["fold"] = fold_no
             daily_smape_df["week"] = week_no
 
-            daily_results.append(daily_smape_df)
+            # Merge all three daily metric frames on Date/fold/week
+            # so each row has rmse, mae and smape for the same day
+            daily_merged = (
+                daily_rmse_df
+                .merge(daily_mae_df,   on=["Date", "fold", "week"])
+                .merge(daily_smape_df, on=["Date", "fold", "week"])
+            )
+            daily_results.append(daily_merged)
             all_predictions.append(week_eval)
 
-        fold_avg_smape = np.mean(fold_week_smapes)
+        fold_avg_rmse = np.mean(fold_week_rmse)
+        fold_avg_mae = np.mean(fold_week_mae)
+        fold_avg_smape = np.mean(fold_week_smape)
 
         fold_results.append({
             "fold": fold_no,
@@ -141,6 +182,8 @@ def run_cross_validation(
             "train_end": fold["train_end"],
             "val_start": fold["val_start"],
             "val_end": fold["val_end"],
+            "fold_avg_rmse": fold_avg_rmse,
+            "fold_avg_mae": fold_avg_mae,
             "fold_avg_smape": fold_avg_smape
         })
 
@@ -149,8 +192,20 @@ def run_cross_validation(
     daily_results_df = pd.concat(daily_results, ignore_index=True)
     predictions_df = pd.concat(all_predictions, ignore_index=True)
 
+    overall_avg_weekly_rmse = weekly_results_df["weekly_rmse"].mean()
+    overall_avg_weekly_mae = weekly_results_df["weekly_mae"].mean()
     overall_avg_weekly_smape = weekly_results_df["weekly_smape"].mean()
 
+    overall_daily_rmse_df = (
+        daily_results_df.groupby("Date", as_index=False)["daily_rmse"]
+        .mean()
+        .sort_values("Date")
+    )
+    overall_daily_mae_df = (
+        daily_results_df.groupby("Date", as_index=False)["daily_mae"]
+        .mean()
+        .sort_values("Date")
+    )
     overall_daily_smape_df = (
         daily_results_df.groupby("Date", as_index=False)["daily_smape"]
         .mean()
@@ -164,6 +219,8 @@ def run_cross_validation(
         print("\nWeekly results:")
         print(weekly_results_df.to_string(index=False))
 
+    print(f"\nAverage RMSE across all weeks in all folds: {overall_avg_weekly_rmse:.3f}")
+    print(f"\nAverage MAE across all weeks in all folds: {overall_avg_weekly_mae:.3f}")
     print(f"\nAverage SMAPE across all weeks in all folds: {overall_avg_weekly_smape:.3f}")
 
     if plot:
@@ -183,7 +240,11 @@ def run_cross_validation(
         "fold_results": fold_results_df,
         "weekly_results": weekly_results_df,
         "daily_results": daily_results_df,
+        "overall_daily_rmse": overall_daily_rmse_df,
+        "overall_daily_mae": overall_daily_mae_df,
         "overall_daily_smape": overall_daily_smape_df,
         "predictions": predictions_df,
+        "overall_avg_weekly_rmse": overall_avg_weekly_rmse,
+        "overall_avg_weekly_mae": overall_avg_weekly_mae,
         "overall_avg_weekly_smape": overall_avg_weekly_smape
     }

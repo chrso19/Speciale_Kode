@@ -87,15 +87,15 @@ def read_data(file_name: str, lag:int = 24):
         print("Lag value must be 24 or 168. Stopping code.")
         sys.exit()
 
-    df['TotalProduction_lag1'] = df['TotalProduction'].shift(1)  # value from 1 hour ago
-    df['TotalProduction_lag24'] = df['TotalProduction'].shift(24)  # value from 24 hours ago
+    #df['TotalProduction_lag1'] = df['TotalProduction'].shift(1)  # value from 1 hour ago
+    #df['TotalProduction_lag24'] = df['TotalProduction'].shift(24)  # value from 24 hours ago
     df['GrossCon_lag1'] = df['GrossCon'].shift(1)
     df['GrossCon_lag24'] = df['GrossCon'].shift(24)
     df['Price_lag1'] = df['DKPrice'].shift(1)
     df['Price_lag24'] = df['DKPrice'].shift(24)
 
     if lag == 168:
-        df['TotalProduction_lag168'] = df['TotalProduction'].shift(168)  # value from 168 hours ago
+    #    df['TotalProduction_lag168'] = df['TotalProduction'].shift(168)  # value from 168 hours ago
         df['GrossCon_lag168'] = df['GrossCon'].shift(168)
         df['Price_lag168'] = df['DKPrice'].shift(168)
 
@@ -116,10 +116,10 @@ def read_data(file_name: str, lag:int = 24):
 
     # Splitting between initial train and test set for DK1
     DK1_train_set = df_DK1.loc[df_DK1['Time'] < pd.Timestamp('2025-01-01')]
-    DK1_train_set = DK1_train_set.drop('Time', axis = 1)
+    #DK1_train_set = DK1_train_set.drop('Time', axis = 1)
     DK1_train_weather = DK1_train_set[['WindSpeed','Radiation']].copy()
     DK1_test_set = df_DK1.loc[df_DK1['Time'] >= pd.Timestamp('2025-01-01')]
-    DK1_test_set = DK1_test_set.drop('Time', axis = 1)
+    #DK1_test_set = DK1_test_set.drop('Time', axis = 1)
     DK1_test_weather = DK1_test_set[['WindSpeed','Radiation']].copy()
 
     # Printing the shape for training and test date for DK1
@@ -129,10 +129,10 @@ def read_data(file_name: str, lag:int = 24):
 
     # Splitting between initial train and test set for DK2
     DK2_train_set = df_DK2.loc[df_DK2['Time'] < pd.Timestamp('2025-01-01')]
-    DK2_train_set = DK2_train_set.drop('Time', axis = 1)
+    #DK2_train_set = DK2_train_set.drop('Time', axis = 1)
     DK2_train_weather = DK2_train_set[['WindSpeed','Radiation']].copy()
     DK2_test_set = df_DK2.loc[df_DK2['Time'] >= pd.Timestamp('2025-01-01')]
-    DK2_test_set = DK2_test_set.drop('Time', axis = 1)
+    #DK2_test_set = DK2_test_set.drop('Time', axis = 1)
     DK2_test_weather = DK2_test_set[['WindSpeed','Radiation']].copy()
 
     # Printing the shape for training and test date for DK2
@@ -144,4 +144,4 @@ def read_data(file_name: str, lag:int = 24):
             DK1_train_weather, DK1_test_weather, DK2_train_weather, DK2_test_weather)
 
 if __name__ == "__main__":
-    read_data("combined_data_cleaned_v4.csv")
+    read_data("combined_data_cleaned_v5.csv")
