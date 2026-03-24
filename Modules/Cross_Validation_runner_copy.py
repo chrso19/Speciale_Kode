@@ -1,300 +1,274 @@
-import pandas as pd
 import numpy as np
-import warnings
-from skforecast.recursive import ForecasterEquivalentDate
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from split_dataset import hyper_param_split
+from week_predictions_copy import get_predictions
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 
-def _build_persist_forecast(
-    history: pd.DataFrame,
-    future_times: list,
-    features: list,
-    offset: int = 168,
-    n_offsets: int = 2,
-    agg_func=np.mean,
-) -> dict:
-    """
-    Uses ForecasterEquivalentDate to forecast each persist feature over the
-    upcoming block. Fits one forecaster per feature on the available history,
-    then predicts `len(future_times)` steps ahead.
+def smape(y_true, y_pred):
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
 
-    Parameters
-    ----------
-    history      : DataFrame with a "Time" column and all persist feature columns,
-                   covering rows up to (not including) the block start.
-    future_times : list of pd.Timestamp — the hours to forecast.
-    features     : list of persist feature column names to forecast.
-    offset       : seasonal period in hours (default 168 = 1 week).
-    n_offsets    : number of past equivalent periods to average over (default 2).
-    agg_func     : aggregation function applied across the n_offsets
-                   (default np.mean; could also use np.median).
+    denominator = np.abs(y_true) + np.abs(y_pred)
+    mask = denominator != 0
 
-    Returns
-    -------
-    dict  {col: np.ndarray of length len(future_times)}
-    """
-    steps = len(future_times)
+    values = np.zeros_like(y_true, dtype=float)
+    values[mask] = 2 * np.abs(y_pred[mask] - y_true[mask]) / denominator[mask]
 
-    # ForecasterEquivalentDate requires a DatetimeIndex with a freq set
-    hist_indexed = history.set_index("Time")
-    hist_indexed.index = pd.DatetimeIndex(hist_indexed.index, freq="h")
-
-    result = {}
-
-    for col in features:
-        series = hist_indexed[col].dropna().astype(np.float64)
-
-        forecaster = ForecasterEquivalentDate(
-            offset=offset,
-            n_offsets=n_offsets,
-            agg_func=agg_func,
-        )
-        forecaster.fit(y=series)
-        preds = forecaster.predict(steps=steps)
-        result[col] = preds.values
-
-    return result
+    return 100 * np.mean(values)
 
 
-def get_predictions(
+def run_cross_validation(
     model,
     dataset: pd.DataFrame,
-    val_start: pd.Timestamp,
-    val_end: pd.Timestamp,
-    forecast_horizon: int = 168,
-    fitted_scaler=None,
-    persist_offset: int = 168,
-    persist_n_offsets: int = 2,
-    persist_agg_func=np.mean,
+    split_setup: int,
+    train_window: int,
+    predict_horizon: int,
+    stride: int,
+    use_scaler: bool = True,
+    print_fold_results: bool = True,
+    plot: bool = True,
+    one_step_ahead: bool = False,
 ):
     """
-    Predicts from val_start to val_end in blocks of forecast_horizon hours.
+    Runs cross-validation over all folds.
 
-    For each block:
-    - known_future features  : true future calendar values
-    - weather features       : true future values (simulated perfect forecast)
-    - persist features       : ForecasterEquivalentDate forecast, using the
-                               last `persist_n_offsets` equivalent periods of
-                               `persist_offset` hours (default: mean of the
-                               last 2 weeks at the same hour)
-    - recursive lag features : updated hour-by-hour using simulated price /
-                               GrossCon values from previous hours in the block
+    For each fold:
+    - train model on train part
+    - get predictions on validation part
+    - calculate daily SMAPE
+    - calculate weekly average SMAPE
+    - calculate fold average SMAPE
 
-    Parameters
-    ----------
-    model               : fitted sklearn-compatible model
-    dataset             : full DataFrame for one zone (DKPrice first, Time present)
-    val_start           : start of validation period
-    val_end             : end of validation period
-    forecast_horizon    : hours per prediction block (default 168)
-    fitted_scaler       : StandardScaler already fitted on training features, or None
-    persist_offset      : seasonal period for ForecasterEquivalentDate (default 168)
-    persist_n_offsets   : number of past periods to average (default 2)
-    persist_agg_func    : aggregation function across periods (default np.mean)
+    After all folds:
+    - calculate average SMAPE across all weeks in all folds
+    - plot daily SMAPE across the full validation timeline
 
-    Returns
-    -------
-    dict  {block_no: pd.DataFrame with columns ["Time", "Prediction"]}
+    If one_step_ahead=True, skips get_predictions entirely and instead
+    evaluates the model using true validation features at each hour.
+    This is faster and simpler but optimistic, since it assumes all
+    features are perfectly known at prediction time.
     """
 
-    data = dataset.copy().reset_index(drop=True)
-
+    data = dataset.copy().sort_values("Time").reset_index(drop=True)
     target_col = data.columns[0]
     feature_columns = [col for col in data.columns[1:] if col != "Time"]
 
-    known_future_features = [
-        "Year", "Month", "Day", "WeekDay", "Hour",
-        "OffshoreWindCapacity", "OnshoreWindCapacity", "SolarPowerCapacity",
-    ]
-    weather_features = ["WindSpeed", "Radiation"]
-    persist_features = [
-        'OffshoreWindPower', 'OnshoreWindPower', 'HydroPower', 'SolarPower',
-        'Biomass', 'Biogas', 'Waste', 'FossilGas', 'FossilOil',
-        'FossilHardCoal', 'ExchangeGreatBelt', 'ExchangeGermany',
-        'ExchangeSweden', 'ExchangeNorway', 'ExchangeNetherlands',
-        'DEPrice', 'NO2Price', 'SE3Price', 'SE4Price', 'NLPrice',
-        'GrossCon', 'TotalProduction',
-    ]
-    recursive_lag_features = [
-        "Price_lag1", "Price_lag24", "Price_lag168",
-        "GrossCon_lag1", "GrossCon_lag24", "GrossCon_lag168",
-    ]
-    dropped_features = ["Time"]
-
-    # --- sanity checks -------------------------------------------------------
-    categorized = (
-        known_future_features + weather_features + persist_features
-        + recursive_lag_features + dropped_features
-    )
-    uncategorized = [c for c in feature_columns if c not in categorized]
-    if uncategorized:
-        raise ValueError(
-            "The following feature columns are not categorized and would leak "
-            "future information:\n" + "\n".join(uncategorized)
-        )
-
-    missing = [
-        c for c in categorized
-        if c not in feature_columns and c not in dropped_features
-    ]
-    if missing:
-        warnings.warn(
-            "Some categorized features are not present in the dataset:\n"
-            + "\n".join(missing) + "\nThey will be ignored."
-        )
-
-    # Only forecast persist features that actually exist in this dataset
-    active_persist = [f for f in persist_features if f in data.columns]
-
-    # Which recursive lag features exist?
-    has_price_lag1   = "Price_lag1"      in data.columns
-    has_price_lag24  = "Price_lag24"     in data.columns
-    has_price_lag168 = "Price_lag168"    in data.columns
-    has_gc_lag1      = "GrossCon_lag1"   in data.columns
-    has_gc_lag24     = "GrossCon_lag24"  in data.columns
-    has_gc_lag168    = "GrossCon_lag168" in data.columns
-    has_grosscon     = "GrossCon"        in data.columns
-
-    # O(1) Time → row index lookup
-    time_to_idx = {t: i for i, t in enumerate(data["Time"])}
-
-    # --- validation horizon --------------------------------------------------
-    horizon_mask  = (data["Time"] >= val_start) & (data["Time"] <= val_end)
-    horizon_hours = data.loc[horizon_mask, "Time"].tolist()
-    if not horizon_hours:
-        raise ValueError("No timestamps found between val_start and val_end.")
-
-    hist_mask = data["Time"] < val_start
-    simulated_history = data.loc[hist_mask].copy().reset_index(drop=True)
-    if simulated_history.empty:
-        raise ValueError("Need historical data before val_start to build lag features.")
-
-    # Rolling price and GrossCon histories as plain lists (O(1) append/index)
-    LOOKBACK = 168
-    price_history    = list(simulated_history[target_col].values[-LOOKBACK:])
-    grosscon_history = (
-        list(simulated_history["GrossCon"].values[-LOOKBACK:])
-        if has_grosscon else []
+    folds = hyper_param_split(
+        split_setup=split_setup,
+        dataset=data,
+        train_window=train_window,
+        predict_horizon=predict_horizon,
+        stride=stride
     )
 
-    # persist_history needs enough past weeks to cover n_offsets * offset hours
-    PERSIST_LOOKBACK = (persist_n_offsets + 1) * persist_offset
-    persist_history = simulated_history.tail(PERSIST_LOOKBACK).copy()
+    fold_results = []
+    weekly_results = []
+    daily_results = []
+    all_predictions = []
 
-    # -------------------------------------------------------------------------
-    block_predictions = {}
-    block_no = 1
-    block_start_idx = 0
+    for fold in folds:
+        fold_no = fold["fold"]
 
-    col_to_feat_idx = {col: i for i, col in enumerate(feature_columns)}
-    future_col_names = known_future_features + weather_features
-    future_col_idx   = {col: i for i, col in enumerate(future_col_names)}
+        train_data = data.loc[
+            (data["Time"] >= fold["train_start"]) &
+            (data["Time"] <= fold["train_end"])
+        ].copy()
 
-    while block_start_idx < len(horizon_hours):
-        block_hours = horizon_hours[block_start_idx:block_start_idx + forecast_horizon]
-        n_block = len(block_hours)
+        val_data = data.loc[
+            (data["Time"] >= fold["val_start"]) &
+            (data["Time"] <= fold["val_end"])
+        ].copy()
 
-        # --- ForecasterEquivalentDate: forecast all persist features at once -
-        persist_fc = _build_persist_forecast(
-            history=persist_history,
-            future_times=block_hours,
-            features=active_persist,
-            offset=persist_offset,
-            n_offsets=persist_n_offsets,
-            agg_func=persist_agg_func,
-        )
+        X_train = train_data[feature_columns]
+        y_train = train_data[target_col]
 
-        # Pre-extract known future + weather values for the whole block
-        future_rows = data.iloc[[time_to_idx[h] for h in block_hours]][
-            future_col_names
-        ].values  # shape (n_block, n_future_cols)
+        if use_scaler:
+            scaler = StandardScaler()
+            X_train = scaler.fit_transform(X_train)
 
-        block_price_preds   = []
-        block_grosscon_vals = []
+        model.fit(X_train, y_train)
 
-        for step in range(n_block):
-            feat_vec = np.empty(len(feature_columns))
+        if one_step_ahead:
+            # Evaluate directly on true validation features — no simulation
+            X_val = val_data[feature_columns]
+            if use_scaler:
+                X_val = scaler.transform(X_val)
+            val_preds = model.predict(X_val)
+            val_data = val_data.copy()
+            val_data["Prediction"] = val_preds
 
-            # 1. Known future features
-            for col in known_future_features:
-                if col in col_to_feat_idx:
-                    feat_vec[col_to_feat_idx[col]] = future_rows[step, future_col_idx[col]]
+            # Split into 168-hour blocks to match the weekly structure
+            preds_by_week = {}
+            for week_no in range(1, len(val_data) // 168 + 1):
+                start_idx = (week_no - 1) * 168
+                end_idx   = start_idx + 168
+                week_slice = val_data.iloc[start_idx:end_idx][["Time", "Prediction"]].copy()
+                if not week_slice.empty:
+                    preds_by_week[week_no] = week_slice
+        else:
+            preds_by_week = get_predictions(
+                model=model,
+                dataset=data,
+                val_start=fold["val_start"],
+                val_end=fold["val_end"],
+                forecast_horizon=168,
+                fitted_scaler=scaler if use_scaler else None,
+                persist_offset=168,      # weekly seasonality
+                persist_n_offsets=3,     # average last 3 equivalent weeks
+                persist_agg_func=np.mean,
+            )
 
-            # 2. Weather features
-            for col in weather_features:
-                if col in col_to_feat_idx:
-                    feat_vec[col_to_feat_idx[col]] = future_rows[step, future_col_idx[col]]
+        fold_week_rmse = []
+        fold_week_mae = []
+        fold_week_smape = []
 
-            # 3. Persist features — from ForecasterEquivalentDate
-            for col, arr in persist_fc.items():
-                if col in col_to_feat_idx:
-                    feat_vec[col_to_feat_idx[col]] = arr[step]
+        for week_no, week_pred_df in preds_by_week.items():
+            week_eval = week_pred_df.merge(
+                val_data[["Time", target_col]],
+                on="Time",
+                how="left"
+            )
 
-            # 4. Recursive price lags
-            # If history is shorter than the lag (only possible at the very start),
-            # fall back to the earliest available value rather than NaN
-            ph = len(price_history)
-            if has_price_lag1 and "Price_lag1" in col_to_feat_idx:
-                feat_vec[col_to_feat_idx["Price_lag1"]]   = price_history[max(-ph, -1)]
-            if has_price_lag24 and "Price_lag24" in col_to_feat_idx:
-                feat_vec[col_to_feat_idx["Price_lag24"]]  = price_history[max(-ph, -24)]
-            if has_price_lag168 and "Price_lag168" in col_to_feat_idx:
-                feat_vec[col_to_feat_idx["Price_lag168"]] = price_history[max(-ph, -168)]
+            week_eval["fold"] = fold_no
+            week_eval["week"] = week_no
+            week_eval["Date"] = week_eval["Time"].dt.floor("D")
 
-            # 5. Recursive GrossCon lags
-            gh = len(grosscon_history)
-            if has_gc_lag1 and "GrossCon_lag1" in col_to_feat_idx:
-                feat_vec[col_to_feat_idx["GrossCon_lag1"]]   = grosscon_history[max(-gh, -1)]
-            if has_gc_lag24 and "GrossCon_lag24" in col_to_feat_idx:
-                feat_vec[col_to_feat_idx["GrossCon_lag24"]]  = grosscon_history[max(-gh, -24)]
-            if has_gc_lag168 and "GrossCon_lag168" in col_to_feat_idx:
-                feat_vec[col_to_feat_idx["GrossCon_lag168"]] = grosscon_history[max(-gh, -168)]
+            week_rmse = np.sqrt(mean_squared_error(
+                week_eval[target_col].values,
+                week_eval["Prediction"].values)
+                )
+            week_mae = mean_absolute_error(
+                week_eval[target_col].values,
+                week_eval["Prediction"].values
+            )
+            week_smape = smape(
+                week_eval[target_col].values,
+                week_eval["Prediction"].values
+            )
 
-            # --- predict -----------------------------------------------------
-            # Replace any remaining NaNs (e.g. from persist forecast gaps) with
-            # column means from the scaler to avoid breaking NaN-intolerant models
-            nan_mask = np.isnan(feat_vec)
-            if nan_mask.any():
-                if fitted_scaler is not None:
-                    feat_vec[nan_mask] = fitted_scaler.mean_[nan_mask]
-                else:
-                    feat_vec[nan_mask] = 0.0
+            fold_week_rmse.append(week_rmse)
+            fold_week_mae.append(week_mae)
+            fold_week_smape.append(week_smape)
 
-            X_row = feat_vec.reshape(1, -1)
-            if fitted_scaler is not None:
-                X_row = fitted_scaler.transform(X_row)
-            y_pred = model.predict(X_row)[0]
+            weekly_results.append({
+                "fold": fold_no,
+                "week": week_no,
+                "week_start": week_eval["Time"].min(),
+                "week_end": week_eval["Time"].max(),
+                "weekly_rmse": week_rmse,
+                "weekly_mae": week_mae,
+                "weekly_smape": week_smape,
+            })
 
-            # Update rolling histories for next step's lag lookups
-            price_history.append(y_pred)
-            if len(price_history) > LOOKBACK:
-                price_history.pop(0)
+            daily_rmse_df = (
+                week_eval.groupby("Date")
+                .apply(lambda g: np.sqrt(mean_squared_error(g[target_col].values, g["Prediction"].values)), include_groups = False)
+                .reset_index(name="daily_rmse")
+            )
+            daily_mae_df = (
+                week_eval.groupby("Date")
+                .apply(lambda g: mean_absolute_error(g[target_col].values, g["Prediction"].values), include_groups=False)
+                .reset_index(name="daily_mae")
+            )
+            daily_smape_df = (
+                week_eval.groupby("Date")
+                .apply(lambda g: smape(g[target_col].values, g["Prediction"].values), include_groups=False)
+                .reset_index(name="daily_smape")
+            )
+            daily_rmse_df["fold"] = fold_no
+            daily_rmse_df["week"] = week_no
+            daily_mae_df["fold"] = fold_no
+            daily_mae_df["week"] = week_no
+            daily_smape_df["fold"] = fold_no
+            daily_smape_df["week"] = week_no
 
-            gc_val = persist_fc["GrossCon"][step] if "GrossCon" in persist_fc else np.nan
-            block_grosscon_vals.append(gc_val)
-            if has_grosscon:
-                grosscon_history.append(gc_val)
-                if len(grosscon_history) > LOOKBACK:
-                    grosscon_history.pop(0)
+            # Merge all three daily metric frames on Date/fold/week
+            # so each row has rmse, mae and smape for the same day
+            daily_merged = (
+                daily_rmse_df
+                .merge(daily_mae_df,   on=["Date", "fold", "week"])
+                .merge(daily_smape_df, on=["Date", "fold", "week"])
+            )
+            daily_results.append(daily_merged)
+            all_predictions.append(week_eval)
 
-            block_price_preds.append(y_pred)
+        fold_avg_rmse = np.mean(fold_week_rmse)
+        fold_avg_mae = np.mean(fold_week_mae)
+        fold_avg_smape = np.mean(fold_week_smape)
 
-        # Store block result
-        block_predictions[block_no] = pd.DataFrame({
-            "Time": block_hours,
-            "Prediction": block_price_preds,
+        fold_results.append({
+            "fold": fold_no,
+            "train_start": fold["train_start"],
+            "train_end": fold["train_end"],
+            "val_start": fold["val_start"],
+            "val_end": fold["val_end"],
+            "fold_avg_rmse": fold_avg_rmse,
+            "fold_avg_mae": fold_avg_mae,
+            "fold_avg_smape": fold_avg_smape
         })
 
-        # Extend persist_history with this block's simulated rows so that the
-        # next block's ForecasterEquivalentDate fits can reach back into it
-        simulated_block = data.iloc[[time_to_idx[h] for h in block_hours]].copy()
-        simulated_block[target_col] = block_price_preds
-        if has_grosscon:
-            simulated_block["GrossCon"] = block_grosscon_vals
-        persist_history = pd.concat(
-            [persist_history, simulated_block], ignore_index=True
-        ).tail(PERSIST_LOOKBACK)
+    fold_results_df = pd.DataFrame(fold_results)
+    weekly_results_df = pd.DataFrame(weekly_results)
+    daily_results_df = pd.concat(daily_results, ignore_index=True)
+    predictions_df = pd.concat(all_predictions, ignore_index=True)
 
-        block_no += 1
-        block_start_idx += forecast_horizon
+    overall_avg_weekly_rmse = weekly_results_df["weekly_rmse"].mean()
+    overall_avg_weekly_mae = weekly_results_df["weekly_mae"].mean()
+    overall_avg_weekly_smape = weekly_results_df["weekly_smape"].mean()
 
-    return block_predictions
+    overall_daily_rmse_df = (
+        daily_results_df.groupby("Date", as_index=False)["daily_rmse"]
+        .mean()
+        .sort_values("Date")
+    )
+    overall_daily_mae_df = (
+        daily_results_df.groupby("Date", as_index=False)["daily_mae"]
+        .mean()
+        .sort_values("Date")
+    )
+    overall_daily_smape_df = (
+        daily_results_df.groupby("Date", as_index=False)["daily_smape"]
+        .mean()
+        .sort_values("Date")
+    )
+
+    if print_fold_results:
+        print("\nFold results:")
+        print(fold_results_df.to_string(index=False))
+
+        print("\nWeekly results:")
+        print(weekly_results_df.to_string(index=False))
+
+    print(f"\nAverage RMSE across all weeks in all folds: {overall_avg_weekly_rmse:.3f}")
+    print(f"\nAverage MAE across all weeks in all folds: {overall_avg_weekly_mae:.3f}")
+    print(f"\nAverage SMAPE across all weeks in all folds: {overall_avg_weekly_smape:.3f}")
+
+    if plot:
+        plt.figure(figsize=(14, 6))
+        plt.plot(
+            overall_daily_smape_df["Date"],
+            overall_daily_smape_df["daily_smape"]
+        )
+        plt.xlabel("Date")
+        plt.ylabel("SMAPE (%)")
+        plt.title("Daily SMAPE across all validation folds")
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.show()
+
+    return {
+        "fold_results": fold_results_df,
+        "weekly_results": weekly_results_df,
+        "daily_results": daily_results_df,
+        "overall_daily_rmse": overall_daily_rmse_df,
+        "overall_daily_mae": overall_daily_mae_df,
+        "overall_daily_smape": overall_daily_smape_df,
+        "predictions": predictions_df,
+        "overall_avg_weekly_rmse": overall_avg_weekly_rmse,
+        "overall_avg_weekly_mae": overall_avg_weekly_mae,
+        "overall_avg_weekly_smape": overall_avg_weekly_smape
+    }
