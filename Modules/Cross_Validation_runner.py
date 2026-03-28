@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from split_dataset import hyper_param_split
-from week_predictions_copy import get_predictions
+from Modules.split_dataset import hyper_param_split
+from Modules.week_predictions import get_predictions
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
@@ -24,13 +24,15 @@ def smape(y_true, y_pred):
 def run_cross_validation(
     model,
     dataset: pd.DataFrame,
+    dk_zone: str,
     split_setup: int,
     train_window: int,
     predict_horizon: int,
     stride: int,
     use_scaler: bool = True,
     print_fold_results: bool = True,
-    plot: bool = True
+    plot: bool = True,
+    rf_models = None
 ):
     """
     Runs cross-validation over all folds.
@@ -93,9 +95,8 @@ def run_cross_validation(
             val_end=fold["val_end"],
             forecast_horizon=168,
             fitted_scaler=scaler if use_scaler else None,
-            persist_offset=168,      # weekly seasonality
-            persist_n_offsets=3,     # average last 2 equivalent weeks
-            persist_agg_func=np.mean,
+            dk_zone=dk_zone,
+            rf_models=rf_models
         )
 
         fold_week_rmse = []
