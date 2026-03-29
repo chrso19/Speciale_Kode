@@ -130,6 +130,38 @@ BASE_ALIASES = {
     "Price": "DKPrice",
 }
 
+# Cache for expensive per-block exogenous feature forecasts so they can be reused
+# across repeated model evaluations (e.g., hyperparameter search combinations).
+_FORECAST_FEATURE_BLOCK_CACHE: dict[tuple, dict[int, pd.DataFrame]] = {}
+
+
+def clear_forecast_feature_cache():
+    """Clear cached exogenous feature forecasts used by get_predictions()."""
+    _FORECAST_FEATURE_BLOCK_CACHE.clear()
+
+
+def _build_feature_cache_key(
+    data: pd.DataFrame,
+    val_start: pd.Timestamp,
+    val_end: pd.Timestamp,
+    forecast_horizon: int,
+    dk_zone: str,
+    feature_columns: list[str],
+    rf_enabled: bool,
+) -> tuple:
+    """Build a stable cache key for exogenous feature block forecasts."""
+    return (
+        str(data["Time"].min()),
+        str(data["Time"].max()),
+        len(data),
+        str(val_start),
+        str(val_end),
+        int(forecast_horizon),
+        dk_zone,
+        tuple(feature_columns),
+        bool(rf_enabled),
+    )
+
 
 @lru_cache(maxsize=None)
 def _load_wandb_rf_model(feature: str, dk_zone: str):
@@ -476,6 +508,21 @@ def get_predictions(
     if simulated_history.empty:
         raise ValueError("Need historical data before val_start to build lag features.")
 
+    rf_enabled = rf_models is not None and bool(rf_models)
+    cache_key = _build_feature_cache_key(
+        data=data,
+        val_start=val_start,
+        val_end=val_end,
+        forecast_horizon=forecast_horizon,
+        dk_zone=dk_zone,
+        feature_columns=feature_columns,
+        rf_enabled=rf_enabled,
+    )
+    cached_blocks = _FORECAST_FEATURE_BLOCK_CACHE.get(cache_key)
+    if cached_blocks is None:
+        cached_blocks = {}
+        _FORECAST_FEATURE_BLOCK_CACHE[cache_key] = cached_blocks
+
     present_forecast_features = [
         feat for feat in FORECASTABLE_FEATURES if feat in data.columns and feat != target_col
     ]
@@ -495,50 +542,53 @@ def get_predictions(
     while block_start_idx < len(horizon_hours):
         block_hours = horizon_hours[block_start_idx:block_start_idx + forecast_horizon]
         block_true = data.loc[data["Time"].isin(block_hours)].copy().reset_index(drop=True)
-        block_df = pd.DataFrame({"Time": block_true["Time"]})
+        if block_no in cached_blocks:
+            block_df = cached_blocks[block_no].copy()
+        else:
+            block_df = pd.DataFrame({"Time": block_true["Time"]})
 
-        # Start with independent features.
-        for col in KNOWN_FUTURE_FEATURES + WEATHER_FEATURES + CAPACITY_FEATURES:
-            if col in block_true.columns:
-                block_df[col] = block_true[col].to_numpy()
+            # Start with independent features.
+            for col in KNOWN_FUTURE_FEATURES + WEATHER_FEATURES + CAPACITY_FEATURES:
+                if col in block_true.columns:
+                    block_df[col] = block_true[col].to_numpy()
 
-        # Forecast non-RF features one feature for the whole week before the next.
-        for feature_name in non_rf_features:
-            method = FORECAST_METHODS[dk_zone][feature_name]
-            if method == "lag24":
-                block_df[feature_name] = _forecast_lag_feature_for_week(
-                    simulated_history, block_df, feature_name, 24
-                )
-            elif method == "lag168":
-                block_df[feature_name] = _forecast_lag_feature_for_week(
-                    simulated_history, block_df, feature_name, 168
-                )
-            elif method == "last_known_value":
-                block_df[feature_name] = _forecast_last_known_value_for_week(
-                    simulated_history, feature_name, len(block_df)
-                )
-            elif method == "skforecast":
-                block_df[feature_name] = _forecast_skforecast_feature_for_week(
-                    simulated_history, block_df, feature_name, offset=168, n_offsets=3, agg_func=np.mean
-                )
-            else:
-                raise ValueError(f"Unsupported forecast method '{method}' for {feature_name}.")
+            # Forecast non-RF features one feature for the whole week before the next.
+            for feature_name in non_rf_features:
+                method = FORECAST_METHODS[dk_zone][feature_name]
+                if method == "lag24":
+                    block_df[feature_name] = _forecast_lag_feature_for_week(
+                        simulated_history, block_df, feature_name, 24
+                    )
+                elif method == "lag168":
+                    block_df[feature_name] = _forecast_lag_feature_for_week(
+                        simulated_history, block_df, feature_name, 168
+                    )
+                elif method == "last_known_value":
+                    block_df[feature_name] = _forecast_last_known_value_for_week(
+                        simulated_history, feature_name, len(block_df)
+                    )
+                elif method == "skforecast":
+                    block_df[feature_name] = _forecast_skforecast_feature_for_week(
+                        simulated_history, block_df, feature_name, offset=168, n_offsets=3, agg_func=np.mean
+                    )
+                else:
+                    raise ValueError(f"Unsupported forecast method '{method}' for {feature_name}.")
 
-        
+            # RF features last.
+            for feature_name in rf_features:
+                if rf_models is None or not rf_models:
+                    warn_msg = (
+                        f"RF models not provided. Skipping RF feature forecast for '{feature_name}'. "
+                        f"Pass rf_models parameter to get_predictions() to forecast RF features."
+                    )
+                    warnings.warn(warn_msg)
+                    continue
 
-        # RF features last.
-        for feature_name in rf_features:
-            if rf_models is None or not rf_models:
-                warn_msg = (
-                    f"RF models not provided. Skipping RF feature forecast for '{feature_name}'. "
-                    f"Pass rf_models parameter to get_predictions() to forecast RF features."
+                block_df[feature_name] = _forecast_rf_feature_for_week(
+                    simulated_history, block_df, feature_name, dk_zone, rf_models
                 )
-                warnings.warn(warn_msg)
-                continue
-            
-            block_df[feature_name] = _forecast_rf_feature_for_week(
-                simulated_history, block_df, feature_name, dk_zone, rf_models
-            )
+
+            cached_blocks[block_no] = block_df.copy()
 
         # Predict target recursively hour by hour.
         target_rows = []
