@@ -4,7 +4,7 @@ import wandb
 
 
 RF_MODEL_CACHE_ENV = "WANDB_RF_MODEL_DIR"
-DEFAULT_RF_MODEL_CACHE_DIR = r"C:\Users\n_and\Documents\Data Science\Speciale\Shallow_learners\Artifacts"
+DEFAULT_RF_MODEL_CACHE_DIR = r"C:\Users\Christine\Documents\Python\Personlig"
 
 
 RF_ARTIFACTS = {
