@@ -12,7 +12,7 @@ from datetime import datetime
 import os
 
 # Try to load data from parquet first (faster), fall back to CSV
-DATA_PATH = os.path.join(os.path.dirname(__file__), 'combined_data_cleaned_v4')
+DATA_PATH = os.path.join(os.path.dirname(__file__), 'combined_data_cleaned_v5')
 
 # Global variable for cached data
 CACHED_DATA = {}
