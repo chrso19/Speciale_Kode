@@ -58,6 +58,7 @@ def read_data(file_name: str, lag:int = 24):
         'NO2Price',
         'SE3Price',
         'SE4Price',
+        'NLPrice',
         'OffshoreWindCapacity',
         'OnshoreWindCapacity',
         'SolarPowerCapacity',
