@@ -4,7 +4,7 @@ import wandb
 
 
 RF_MODEL_CACHE_ENV = "WANDB_RF_MODEL_DIR"
-DEFAULT_RF_MODEL_CACHE_DIR = r"C:\Users\n_and\Documents\Data Science\Speciale\Shallow_learners\Artifacts"
+DEFAULT_RF_MODEL_CACHE_DIR = r"C:\Users\Christine\Documents\Python\Personlig"
 
 
 RF_ARTIFACTS = {
@@ -21,7 +21,7 @@ RF_ARTIFACTS = {
 _model_cache = None
 
 
-def _resolve_cache_root(cache_root: str | None) -> str:
+def _resolve_cache_root(user: str, cache_root: str | None) -> str:
     """Resolve the model cache directory, preferring explicit and absolute paths."""
     if cache_root:
         return os.path.abspath(os.path.expanduser(os.path.expandvars(cache_root)))
@@ -29,20 +29,30 @@ def _resolve_cache_root(cache_root: str | None) -> str:
     env_cache_root = os.getenv(RF_MODEL_CACHE_ENV)
     if env_cache_root:
         resolved_env = os.path.abspath(os.path.expanduser(os.path.expandvars(env_cache_root)))
-        # Ignore relative env values (e.g. "Artifacts") to avoid notebook-CWD folders.
         if os.path.isabs(env_cache_root):
             return resolved_env
         print(
             f"Ignoring relative {RF_MODEL_CACHE_ENV}='{env_cache_root}'. "
-            f"Using DEFAULT_RF_MODEL_CACHE_DIR instead."
+            f"Using user-specific default instead."
+        )
+
+    user = user.strip().lower()
+
+    if user == "nikolaj":
+        cache_root = r"C:\Users\n_and\Documents\Data Science\Speciale\Shallow_learners\Artifacts"
+    elif user == "christine":
+        cache_root = r"C:\Users\Christine\Documents\Python\Personlig"
+    else:
+        raise ValueError(
+            f"Unknown user '{user}'. Must be 'Nikolaj' or 'Christine'."
         )
 
     return os.path.abspath(
-        os.path.expanduser(os.path.expandvars(DEFAULT_RF_MODEL_CACHE_DIR))
+        os.path.expanduser(os.path.expandvars(cache_root))
     )
 
 
-def load_rf_models(timeout: int = 60, cache_root: str | None = None) -> dict:
+def load_rf_models(user: str, timeout: int = 60, cache_root: str | None = None) -> dict:
     """
     Download and load RF models for all forecast features once per Python session.
     
@@ -51,6 +61,8 @@ def load_rf_models(timeout: int = 60, cache_root: str | None = None) -> dict:
 
     Parameters
     ----------
+    user : str
+        The user for whom to load models.
     timeout : int, default 60
         Timeout in seconds for W&B API calls.
     cache_root : str | None, default None
@@ -71,7 +83,7 @@ def load_rf_models(timeout: int = 60, cache_root: str | None = None) -> dict:
         
     Examples
     --------
-    >>> rf_models = load_rf_models()
+    >>> rf_models = load_rf_models(user="Nikolaj")
     >>> rf_models["OffshoreWindPower_DK1"]
     Pipeline(steps=[('scaler', StandardScaler()), ('model', RandomForestRegressor(...))])
     """
@@ -80,7 +92,7 @@ def load_rf_models(timeout: int = 60, cache_root: str | None = None) -> dict:
     if _model_cache is not None:
         return _model_cache
 
-    cache_root = _resolve_cache_root(cache_root)
+    cache_root = _resolve_cache_root(user, cache_root)
 
     if cache_root:
         os.makedirs(cache_root, exist_ok=True)
