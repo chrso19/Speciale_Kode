@@ -20,18 +20,30 @@ def smape(y_true, y_pred):
     return 100 * np.mean(values)
 
 
-def _build_2024_validation_folds(data: pd.DataFrame, train_window: int, predict_horizon: int, stride: int):
+def _build_validation_folds(
+        data: pd.DataFrame, 
+        train_window: int,
+        val_window: int,
+        val_start: str, 
+        predict_period: int, 
+        stride: int
+        ) -> list:
     """
     Build validation folds with:
     - fixed train_end at 2023-12-31 23:00:00
     - validation windows inside 2024
     - val_start stepping by `stride`
     """
-    train_end = pd.Timestamp("2023-12-31 23:00:00")
-    train_start = train_end - pd.Timedelta(hours=train_window - 1)
 
-    val_window_start = pd.Timestamp("2024-01-01 00:00:00")
-    val_2024_end = pd.Timestamp("2024-12-31 23:00:00")
+    if not val_start:
+        raise ValueError("val_start must be provided, e.g. '2024-01-01 00:00:00'")
+    else:
+        val_start = pd.to_datetime(val_start)
+
+    val_window_start = val_start
+    val_window_end = val_window_start + pd.Timedelta(hours=val_window - 1)
+    train_end = val_start - pd.Timedelta(hours=1)
+    train_start = train_end - pd.Timedelta(hours=train_window - 1)
 
     data_min = data["Time"].min()
     data_max = data["Time"].max()
@@ -50,9 +62,10 @@ def _build_2024_validation_folds(data: pd.DataFrame, train_window: int, predict_
     folds = []
     fold_no = 1
 
-    while val_window_start <= val_2024_end:
-        val_end = val_window_start + pd.Timedelta(hours=predict_horizon - 1)
-        if val_end > val_2024_end:
+    val_start = val_window_start
+    while val_start <= val_window_end:
+        val_end = val_start + pd.Timedelta(hours=predict_period - 1)
+        if val_end > val_window_end:
             break
         if val_end > data_max:
             break
@@ -61,11 +74,11 @@ def _build_2024_validation_folds(data: pd.DataFrame, train_window: int, predict_
             "fold": fold_no,
             "train_start": train_start,
             "train_end": train_end,
-            "val_start": val_window_start,
+            "val_start": val_start,
             "val_end": val_end,
         })
         fold_no += 1
-        val_window_start = val_window_start + pd.Timedelta(hours=stride)
+        val_start = val_start + pd.Timedelta(hours=stride)
 
     if not folds:
         raise ValueError("No valid 2024 validation folds could be created with the given horizon/stride.")
@@ -79,7 +92,9 @@ def run_cross_validation(
     dk_zone: str,
     split_setup: int,
     train_window: int,
-    predict_horizon: int,
+    val_window: int,
+    val_start: str,
+    predict_period: int,
     stride: int,
     use_scaler: bool = True,
     print_fold_results: bool = True,
@@ -107,10 +122,12 @@ def run_cross_validation(
     target_col = data.columns[0]
     feature_columns = [col for col in data.columns[1:] if col != "Time"]
 
-    folds = _build_2024_validation_folds(
+    folds = _build_validation_folds(
         data=data,
         train_window=train_window,
-        predict_horizon=predict_horizon,
+        val_window=val_window,
+        val_start=val_start,
+        predict_period=predict_period,
         stride=stride,
     )
 
