@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import time
 
 from Modules.week_predictions import get_predictions
 from sklearn.preprocessing import StandardScaler
@@ -150,15 +151,27 @@ def run_cross_validation(
         scaler = StandardScaler()
         X_train = scaler.fit_transform(X_train)
 
+    train_hours = int((first_fold["train_end"] - first_fold["train_start"]) / pd.Timedelta(hours=1)) + 1
+    print(
+        "Training fold details: "
+        f"train_start={first_fold['train_start']}, "
+        f"train_end={first_fold['train_end']}, "
+        f"hours={train_hours}, "
+        f"rows={len(y_train)}, "
+        f"features={len(feature_columns)}"
+    )
+
     # TRAIN MODEL ONCE
+    fit_start = time.perf_counter()
     model.fit(X_train, y_train)
+    fit_seconds = time.perf_counter() - fit_start
 
     fold_results = []
     weekly_results = []
     daily_results = []
     all_predictions = []
 
-    print(f"Model trained. Now validating on {len(folds)} folds...")
+    print(f"Model trained in {fit_seconds:.2f}s. Now validating on {len(folds)} folds...")
 
     # Validate on all folds WITHOUT retraining
     for fold in folds:
@@ -335,6 +348,7 @@ def run_cross_validation(
         plt.show()
 
     return {
+        "model": model,
         "fold_results": fold_results_df,
         "weekly_results": weekly_results_df,
         "daily_results": daily_results_df,

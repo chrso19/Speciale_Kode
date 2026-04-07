@@ -1,0 +1,2 @@
+n_estimators,max_depth,min_samples_split,min_samples_leaf,avg_smape,avg_weekly_rmse,avg_weekly_mae,avg_weekly_smape,avg_daily_rmse,avg_daily_mae,avg_daily_smape,avg_smape_day_1,avg_smape_day_2,avg_smape_day_3,avg_smape_day_4,avg_smape_day_5,avg_smape_day_6,avg_smape_day_7
+50,,2,10,"61,544668669600895","389,3892286198405","305,84284012017014","61,544668669600895","368,3964323784796","308,95227024470006","62,203495146254696","53,33755384361688","48,918740167487236","48,93854877511814","68,24561156345086","82,73811418478068","64,54463023582208","68,87176612471153"
