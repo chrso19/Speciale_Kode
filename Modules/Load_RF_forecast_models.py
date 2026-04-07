@@ -40,8 +40,10 @@ def _resolve_cache_root(user: str, cache_root: str | None) -> str:
 
     if user == "nikolaj":
         cache_root = r"C:\Users\n_and\Documents\Data Science\Speciale\Shallow_learners\Artifacts"
-    elif user == "christine":
+    elif user == "christine - laptop":
         cache_root = r"C:\Users\Christine\Documents\Python\Personlig"
+    elif user == "christine - desktop":
+        cache_root = r"C:\Users\chris\Documents\Python\Personlig\Artifacts"
     else:
         raise ValueError(
             f"Unknown user '{user}'. Must be 'Nikolaj' or 'Christine'."
