@@ -88,17 +88,18 @@ def read_data(file_name: str, lag:int = 24):
         print("Lag value must be 24 or 168. Stopping code.")
         sys.exit()
 
-    #df['TotalProduction_lag1'] = df['TotalProduction'].shift(1)  # value from 1 hour ago
-    #df['TotalProduction_lag24'] = df['TotalProduction'].shift(24)  # value from 24 hours ago
-    df['GrossCon_lag1'] = df['GrossCon'].shift(1)
-    df['GrossCon_lag24'] = df['GrossCon'].shift(24)
-    df['Price_lag1'] = df['DKPrice'].shift(1)
-    df['Price_lag24'] = df['DKPrice'].shift(24)
+    # Build lags within each bidding zone so lag steps correspond to true hourly lags per zone.
+    #df['TotalProduction_lag1'] = df.groupby('DKZone')['TotalProduction'].shift(1)  # value from 1 hour ago
+    #df['TotalProduction_lag24'] = df.groupby('DKZone')['TotalProduction'].shift(24)  # value from 24 hours ago
+    df['GrossCon_lag1'] = df.groupby('DKZone')['GrossCon'].shift(1)
+    df['GrossCon_lag24'] = df.groupby('DKZone')['GrossCon'].shift(24)
+    df['Price_lag1'] = df.groupby('DKZone')['DKPrice'].shift(1)
+    df['Price_lag24'] = df.groupby('DKZone')['DKPrice'].shift(24)
 
     if lag == 168:
-    #    df['TotalProduction_lag168'] = df['TotalProduction'].shift(168)  # value from 168 hours ago
-        df['GrossCon_lag168'] = df['GrossCon'].shift(168)
-        df['Price_lag168'] = df['DKPrice'].shift(168)
+    #    df['TotalProduction_lag168'] = df.groupby('DKZone')['TotalProduction'].shift(168)  # value from 168 hours ago
+        df['GrossCon_lag168'] = df.groupby('DKZone')['GrossCon'].shift(168)
+        df['Price_lag168'] = df.groupby('DKZone')['DKPrice'].shift(168)
 
     # Dropping NaN rows
     df = df.dropna()        # Drops the first max-lag-number of rows in the dataset
