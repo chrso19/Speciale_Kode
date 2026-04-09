@@ -19,6 +19,11 @@ except ImportError:
     except ImportError:
         ForecasterEquivalentDate = None
 
+try:
+    from skforecast.exceptions import IgnoredArgumentWarning
+except ImportError:
+    IgnoredArgumentWarning = None
+
 
 KNOWN_FUTURE_FEATURES = ["Year", "Month", "Day", "WeekDay", "Hour"]
 WEATHER_FEATURES = ["WindSpeed", "Radiation"]
@@ -148,6 +153,7 @@ def _build_feature_cache_key(
     dk_zone: str,
     feature_columns: list[str],
     rf_enabled: bool,
+    use_precomputed_feature_values: bool = False,
 ) -> tuple:
     """Build a stable cache key for exogenous feature block forecasts."""
     return (
@@ -160,6 +166,7 @@ def _build_feature_cache_key(
         dk_zone,
         tuple(feature_columns),
         bool(rf_enabled),
+        bool(use_precomputed_feature_values),
     )
 
 
@@ -326,9 +333,22 @@ def _forecast_skforecast_feature_for_week(
         n_offsets=n_offsets,
         agg_func=agg_func,
     )
-    forecaster.fit(y=hist_series)
+    with warnings.catch_warnings():
+        if IgnoredArgumentWarning is not None:
+            warnings.filterwarnings("ignore", category=IgnoredArgumentWarning)
+        warnings.filterwarnings(
+            "ignore",
+            message=r".*Bin edges must be unique.*",
+            category=UserWarning,
+        )
+        warnings.filterwarnings(
+            "ignore",
+            message=r".*reduced number of bins.*duplicate edges.*",
+            category=UserWarning,
+        )
+        forecaster.fit(y=hist_series)
+        preds = forecaster.predict(steps=len(block_df))
 
-    preds = forecaster.predict(steps=len(block_df))
     preds = np.asarray(preds, dtype=float).reshape(-1).tolist()
 
     block_df.loc[:, feature_name] = preds
@@ -450,7 +470,9 @@ def get_predictions(
     forecast_horizon: int = 168,
     fitted_scaler=None,
     dk_zone: str | None = None,
-    rf_models=None
+    rf_models=None,
+    use_precomputed_feature_values: bool = False,
+    precomputed_feature_predictions: pd.DataFrame | None = None,
 ):
     """
     Predict from val_start to val_end in week-sized blocks while constructing
@@ -489,6 +511,12 @@ def get_predictions(
         Keys should be formatted as "{feature_name}_{dk_zone}" (e.g., "OffshoreWindPower_DK1").
         Required if dataset contains RF-forecasted features. If None and RF features are present,
         those features will be skipped with a warning.
+    use_precomputed_feature_values : bool, default False
+        If True, reuse any forecastable feature values already present in the input dataset
+        for the current validation block before falling back to RF / skforecast generation.
+    precomputed_feature_predictions : pd.DataFrame | None, default None
+        Optional forecast feature table keyed by Time. When provided, forecastable features
+        are pulled from this table for each validation block instead of being recomputed.
 
     """
 
@@ -517,11 +545,20 @@ def get_predictions(
         dk_zone=dk_zone,
         feature_columns=feature_columns,
         rf_enabled=rf_enabled,
+        use_precomputed_feature_values=use_precomputed_feature_values,
     )
     cached_blocks = _FORECAST_FEATURE_BLOCK_CACHE.get(cache_key)
     if cached_blocks is None:
         cached_blocks = {}
         _FORECAST_FEATURE_BLOCK_CACHE[cache_key] = cached_blocks
+
+    precomputed_predictions = None
+    if use_precomputed_feature_values and precomputed_feature_predictions is not None:
+        precomputed_predictions = precomputed_feature_predictions.copy()
+        precomputed_predictions = precomputed_predictions.loc[:, ~precomputed_predictions.columns.duplicated()].copy()
+        if "DKZone" in precomputed_predictions.columns:
+            precomputed_predictions = precomputed_predictions.loc[precomputed_predictions["DKZone"] == dk_zone].copy()
+        precomputed_predictions["Time"] = pd.to_datetime(precomputed_predictions["Time"])
 
     present_forecast_features = [
         feat for feat in FORECASTABLE_FEATURES if feat in data.columns and feat != target_col
@@ -547,13 +584,34 @@ def get_predictions(
         else:
             block_df = pd.DataFrame({"Time": block_true["Time"]})
 
-            # Start with independent features.
-            for col in KNOWN_FUTURE_FEATURES + WEATHER_FEATURES + CAPACITY_FEATURES:
+            # Start with any forecastable features that are already available in the dataset.
+            for col in present_forecast_features:
                 if col in block_true.columns:
+                    block_df[col] = block_true[col].to_numpy()
+
+            if precomputed_predictions is not None:
+                block_precomputed = precomputed_predictions.loc[
+                    precomputed_predictions["Time"].isin(block_hours)
+                ].sort_values("Time")
+                if len(block_precomputed) != len(block_df):
+                    raise ValueError(
+                        f"Expected {len(block_df)} precomputed rows for the validation block, "
+                        f"got {len(block_precomputed)}."
+                    )
+                for col in present_forecast_features:
+                    if col in block_precomputed.columns:
+                        block_df[col] = block_precomputed[col].to_numpy()
+
+            # Keep the legacy explicit copy for the standard known-future feature groups.
+            for col in KNOWN_FUTURE_FEATURES + WEATHER_FEATURES + CAPACITY_FEATURES:
+                if col in block_true.columns and col not in block_df.columns:
                     block_df[col] = block_true[col].to_numpy()
 
             # Forecast non-RF features one feature for the whole week before the next.
             for feature_name in non_rf_features:
+                if use_precomputed_feature_values and feature_name in block_df.columns and block_df[feature_name].notna().all():
+                    continue
+
                 method = FORECAST_METHODS[dk_zone][feature_name]
                 if method == "lag24":
                     block_df[feature_name] = _forecast_lag_feature_for_week(
@@ -576,6 +634,9 @@ def get_predictions(
 
             # RF features last.
             for feature_name in rf_features:
+                if use_precomputed_feature_values and feature_name in block_df.columns and block_df[feature_name].notna().all():
+                    continue
+
                 if rf_models is None or not rf_models:
                     warn_msg = (
                         f"RF models not provided. Skipping RF feature forecast for '{feature_name}'. "
