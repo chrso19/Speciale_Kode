@@ -1,0 +1,2 @@
+kernel,C,gamma,epsilon,avg_smape,avg_weekly_rmse,avg_weekly_mae,avg_weekly_smape,avg_daily_rmse,avg_daily_mae,avg_daily_smape,avg_smape_day_1,avg_smape_day_2,avg_smape_day_3,avg_smape_day_4,avg_smape_day_5,avg_smape_day_6,avg_smape_day_7
+rbf,"1,0",auto,"0,5","59,02538498669322","347,2953189595027","281,36946277147604","59,02538498669322","330,2960661773584","284,57191384305645","59,74149137980398","52,19777851285968","47,82554101059557","48,629002767132995","70,35276638599454","79,83893172682203","58,64933577315018","60,84215488336028"
