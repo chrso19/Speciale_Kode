@@ -154,6 +154,7 @@ def _build_feature_cache_key(
     feature_columns: list[str],
     rf_enabled: bool,
     use_precomputed_feature_values: bool = False,
+    use_forecasted_history: bool = True,
 ) -> tuple:
     """Build a stable cache key for exogenous feature block forecasts."""
     return (
@@ -167,6 +168,7 @@ def _build_feature_cache_key(
         tuple(feature_columns),
         bool(rf_enabled),
         bool(use_precomputed_feature_values),
+        bool(use_forecasted_history),
     )
 
 
@@ -473,6 +475,7 @@ def get_predictions(
     rf_models=None,
     use_precomputed_feature_values: bool = False,
     precomputed_feature_predictions: pd.DataFrame | None = None,
+    use_forecasted_history: bool = True,
 ):
     """
     Predict from val_start to val_end in week-sized blocks while constructing
@@ -517,6 +520,9 @@ def get_predictions(
     precomputed_feature_predictions : pd.DataFrame | None, default None
         Optional forecast feature table keyed by Time. When provided, forecastable features
         are pulled from this table for each validation block instead of being recomputed.
+    use_forecasted_history : bool, default True
+        If True, use recursively forecasted values as history inside the validation horizon
+        (current behavior). If False, use true historical values from the dataset.
 
     """
 
@@ -546,6 +552,7 @@ def get_predictions(
         feature_columns=feature_columns,
         rf_enabled=rf_enabled,
         use_precomputed_feature_values=use_precomputed_feature_values,
+        use_forecasted_history=use_forecasted_history,
     )
     cached_blocks = _FORECAST_FEATURE_BLOCK_CACHE.get(cache_key)
     if cached_blocks is None:
@@ -611,6 +618,8 @@ def get_predictions(
             for feature_name in non_rf_features:
                 if use_precomputed_feature_values and feature_name in block_df.columns and block_df[feature_name].notna().all():
                     continue
+                if (not use_forecasted_history) and feature_name in block_df.columns and block_df[feature_name].notna().all():
+                    continue
 
                 method = FORECAST_METHODS[dk_zone][feature_name]
                 if method == "lag24":
@@ -635,6 +644,8 @@ def get_predictions(
             # RF features last.
             for feature_name in rf_features:
                 if use_precomputed_feature_values and feature_name in block_df.columns and block_df[feature_name].notna().all():
+                    continue
+                if (not use_forecasted_history) and feature_name in block_df.columns and block_df[feature_name].notna().all():
                     continue
 
                 if rf_models is None or not rf_models:
@@ -666,16 +677,20 @@ def get_predictions(
                 if lag_hours is not None:
                     resolved_base = _resolve_base_feature(base_feature, target_col)
                     if resolved_base == target_col:
-                        temp_history = simulated_history.copy()
-                        if target_rows:
-                            target_future = pd.DataFrame(target_rows)
-                            for req_col in temp_history.columns:
-                                if req_col not in target_future.columns:
-                                    target_future[req_col] = np.nan
-                            target_future = target_future[temp_history.columns]
-                            temp_history = pd.concat([temp_history, target_future], ignore_index=True)
-                        temp_block = pd.DataFrame({"Time": [timestamp], resolved_base: [np.nan]})
-                        new_row[col] = _value_from_lag(temp_history, temp_block, resolved_base, timestamp, lag_hours)
+                        if use_forecasted_history:
+                            temp_history = simulated_history.copy()
+                            if target_rows:
+                                target_future = pd.DataFrame(target_rows)
+                                for req_col in temp_history.columns:
+                                    if req_col not in target_future.columns:
+                                        target_future[req_col] = np.nan
+                                target_future = target_future[temp_history.columns]
+                                temp_history = pd.concat([temp_history, target_future], ignore_index=True)
+                            temp_block = pd.DataFrame({"Time": [timestamp], resolved_base: [np.nan]})
+                            new_row[col] = _value_from_lag(temp_history, temp_block, resolved_base, timestamp, lag_hours)
+                        else:
+                            temp_block = pd.DataFrame({"Time": [timestamp], resolved_base: [np.nan]})
+                            new_row[col] = _value_from_lag(data, temp_block, resolved_base, timestamp, lag_hours)
                     else:
                         new_row[col] = _value_from_lag(simulated_history, block_df, resolved_base, timestamp, lag_hours)
                     continue
@@ -696,11 +711,18 @@ def get_predictions(
         block_out = pd.DataFrame(target_rows)
         block_predictions[block_no] = block_out[["Time", "Prediction"]].copy()
 
-        history_append = block_out.copy()
-        for col in data.columns:
-            if col not in history_append.columns:
-                history_append[col] = np.nan
-        history_append = history_append[data.columns]
+        if use_forecasted_history:
+            history_append = block_out.copy()
+            for col in data.columns:
+                if col not in history_append.columns:
+                    history_append[col] = np.nan
+            history_append = history_append[data.columns]
+        else:
+            history_append = data.loc[data["Time"].isin(block_hours)].copy()
+            for col in data.columns:
+                if col not in history_append.columns:
+                    history_append[col] = np.nan
+            history_append = history_append[data.columns]
         simulated_history = pd.concat([simulated_history, history_append], ignore_index=True)
 
         block_no += 1

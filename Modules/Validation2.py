@@ -103,6 +103,7 @@ def run_cross_validation(
     rf_models = None,
     use_precomputed_feature_values: bool = False,
     precomputed_feature_predictions: pd.DataFrame | None = None,
+    use_forecasted_history: bool = True,
 ):
     """
     Runs cross-validation over all folds.
@@ -195,6 +196,7 @@ def run_cross_validation(
             rf_models=rf_models,
             use_precomputed_feature_values=use_precomputed_feature_values,
             precomputed_feature_predictions=precomputed_feature_predictions,
+            use_forecasted_history=use_forecasted_history,
         )
 
         fold_week_rmse = []
