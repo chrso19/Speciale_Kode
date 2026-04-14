@@ -1,0 +1,2 @@
+fold,train_start,train_end,val_start,val_end,fold_avg_rmse,fold_avg_mae,fold_avg_smape
+1,2016-01-01,2024-12-31 23:00:00,2025-01-01,2025-12-31 23:00:00,379.0675676850281,308.65904619063025,63.81624491573578
