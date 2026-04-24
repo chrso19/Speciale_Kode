@@ -231,6 +231,34 @@ def _resolve_base_feature(base_feature: str, target_col: str) -> str:
     return BASE_ALIASES.get(base_feature, base_feature)
 
 
+def _build_rnn_window(
+    history_rows: pd.DataFrame,
+    current_row: dict,
+    feature_columns: list[str],
+    sequence_length: int,
+    fitted_scaler=None,
+) -> np.ndarray:
+    """Build one (1, sequence_length, n_features) window for an RNN prediction."""
+
+    seq_len = max(1, int(sequence_length))
+    history_window = history_rows.loc[:, feature_columns].tail(max(seq_len - 1, 0)).copy()
+    current_frame = pd.DataFrame([current_row], columns=feature_columns)
+    window = pd.concat([history_window, current_frame], ignore_index=True)
+
+    if len(window) < seq_len:
+        pad_source = window.iloc[:1].copy()
+        pad = pd.concat([pad_source] * (seq_len - len(window)), ignore_index=True)
+        window = pd.concat([pad, window], ignore_index=True)
+
+    if fitted_scaler is not None:
+        window = pd.DataFrame(
+            fitted_scaler.transform(window),
+            columns=feature_columns,
+        )
+
+    return window.to_numpy(dtype=np.float32)[np.newaxis, ...]
+
+
 
 def _series_up_to_time(
     history_df: pd.DataFrame,
@@ -701,10 +729,23 @@ def get_predictions(
                     f"Could not build feature column '{col}' for target model prediction."
                 )
 
-            X_row = pd.DataFrame([new_row])[feature_columns]
-            if fitted_scaler is not None:
-                X_row = fitted_scaler.transform(X_row)
-            y_pred = float(model.predict(X_row)[0])
+            sequence_length = int(getattr(model, "sequence_length", 1))
+            history_rows = block_history.copy()
+            if target_rows:
+                target_history = pd.DataFrame(target_rows)
+                for col in feature_columns:
+                    if col not in target_history.columns:
+                        target_history[col] = np.nan
+                history_rows = pd.concat([history_rows, target_history], ignore_index=True)
+
+            X_window = _build_rnn_window(
+                history_rows=history_rows,
+                current_row=new_row,
+                feature_columns=feature_columns,
+                sequence_length=sequence_length,
+                fitted_scaler=fitted_scaler,
+            )
+            y_pred = float(model.predict(X_window)[0])
 
             new_row[target_col] = y_pred
             new_row["Prediction"] = y_pred
