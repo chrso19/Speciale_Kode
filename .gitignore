@@ -5,3 +5,6 @@ __pycache__/
 *.pyc
 
 .vscode/
+
+Deep learners/Simple RNN/wandb/
+Deep learners/Simple RNN/artifacts/
