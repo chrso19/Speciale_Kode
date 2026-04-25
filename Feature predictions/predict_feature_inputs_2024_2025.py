@@ -80,7 +80,10 @@ def build_feature_blocks(
         wp._FORECAST_FEATURE_BLOCK_CACHE[cache_key] = cached_blocks
 
     present_forecast_features = [
-        feat for feat in wp.FORECASTABLE_FEATURES if feat in data.columns and feat != target_col
+        feat for feat in wp.FORECASTABLE_FEATURES
+        if feat in data.columns
+        and feat != target_col
+        and feat not in wp.CAPACITY_FEATURES
     ]
     non_rf_features = [
         feat

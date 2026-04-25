@@ -236,6 +236,8 @@ def _build_rnn_window(
     current_row: dict,
     feature_columns: list[str],
     sequence_length: int,
+    target_col: str | None = None,
+    include_target_history: bool = False,
     fitted_scaler=None,
 ) -> np.ndarray:
     """Build one (1, sequence_length, n_features) window for an RNN prediction."""
@@ -256,7 +258,28 @@ def _build_rnn_window(
             columns=feature_columns,
         )
 
-    return window.to_numpy(dtype=np.float32)[np.newaxis, ...]
+    window_np = window.to_numpy(dtype=np.float32)
+
+    if include_target_history:
+        if target_col is None or target_col not in history_rows.columns:
+            raise ValueError(
+                "Target-history input requested, but target column is missing from history rows."
+            )
+
+        history_target = history_rows.loc[:, target_col].tail(max(seq_len - 1, 0)).copy()
+        current_target = pd.Series([np.nan], dtype=float)
+        target_window = pd.concat([history_target, current_target], ignore_index=True)
+
+        if len(target_window) < seq_len:
+            first_val = target_window.iloc[0] if len(target_window) else np.nan
+            pad = pd.Series([first_val] * (seq_len - len(target_window)), dtype=float)
+            target_window = pd.concat([pad, target_window], ignore_index=True)
+
+        target_known_mask = target_window.notna().astype(np.float32).to_numpy().reshape(-1, 1)
+        target_values = target_window.fillna(0.0).astype(np.float32).to_numpy().reshape(-1, 1)
+        window_np = np.concatenate([window_np, target_values, target_known_mask], axis=1)
+
+    return window_np[np.newaxis, ...]
 
 
 
@@ -738,13 +761,22 @@ def get_predictions(
                         target_history[col] = np.nan
                 history_rows = pd.concat([history_rows, target_history], ignore_index=True)
 
+            include_target_history = bool(getattr(model, "use_target_history", False))
             X_window = _build_rnn_window(
                 history_rows=history_rows,
                 current_row=new_row,
                 feature_columns=feature_columns,
                 sequence_length=sequence_length,
+                target_col=target_col,
+                include_target_history=include_target_history,
                 fitted_scaler=fitted_scaler,
             )
+            
+            if __name__ == "__main__":
+                print(f"Model feature columns ({len(feature_columns)}): {feature_columns}")
+                print(f"X_window shape: {X_window.shape}")
+                print(f"Current row columns ({len(new_row)}): {list(new_row.keys())}")
+
             y_pred = float(model.predict(X_window)[0])
 
             new_row[target_col] = y_pred
@@ -772,3 +804,44 @@ def get_predictions(
         block_start_idx += forecast_horizon
 
     return block_predictions
+
+if __name__ == "__main__":
+    from pathlib import Path
+    from read_data import read_data
+    
+    DKZone = "DK1"
+
+    (
+        DK1_train,
+        DK1_test,
+        DK2_train,
+        DK2_test,
+        DK1_train_weather,
+        DK1_test_weather,
+        DK2_train_weather,
+        DK2_test_weather
+    ) = read_data("combined_data_cleaned_v5.csv")
+
+    project_root = r"C:\Users\n_and\OneDrive\Delt skrivebord\Data Science\Speciale\Energinet\Delte scripts\Speciale_Kode"
+    prediction_path = Path(project_root) / "Data" / f"feature_predictions_{DKZone}_2024-2025.csv"
+    predictions = pd.read_csv(
+        prediction_path,
+        sep=";",
+        decimal=".",
+        parse_dates=["Time"],
+        dayfirst=True,
+    )
+
+    get_predictions(
+        model = None,
+        dataset = DK1_train,
+        val_start = "2024-01-01 00:00:00",
+        val_end = "2024-12-31 23:00:00",
+        forecast_horizon = 168,
+        fitted_scaler=None,
+        dk_zone = "DK1",
+        rf_models = None,
+        use_precomputed_feature_values = True,
+        precomputed_feature_predictions = predictions,
+        use_forecasted_history = True,
+    ) 
