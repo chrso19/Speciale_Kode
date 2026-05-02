@@ -1,0 +1,12 @@
+{"time":"2026-05-01T19:08:07.7485217+02:00","level":"INFO","msg":"stream: starting","core version":"0.22.3"}
+{"time":"2026-05-01T19:08:08.4172978+02:00","level":"INFO","msg":"stream: created new stream","id":"ysmbpr30"}
+{"time":"2026-05-01T19:08:08.4178482+02:00","level":"INFO","msg":"handler: started","stream_id":"ysmbpr30"}
+{"time":"2026-05-01T19:08:08.4265307+02:00","level":"INFO","msg":"stream: started","id":"ysmbpr30"}
+{"time":"2026-05-01T19:08:08.4265307+02:00","level":"INFO","msg":"writer: started","stream_id":"ysmbpr30"}
+{"time":"2026-05-01T19:08:08.4265307+02:00","level":"INFO","msg":"sender: started","stream_id":"ysmbpr30"}
+{"time":"2026-05-01T19:56:57.2440819+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-05-01T19:56:57.5587949+02:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-05-01T19:56:57.5898335+02:00","level":"INFO","msg":"stream: closing","id":"ysmbpr30"}
+{"time":"2026-05-01T19:56:57.5898335+02:00","level":"INFO","msg":"handler: closed","stream_id":"ysmbpr30"}
+{"time":"2026-05-01T19:56:57.5911752+02:00","level":"INFO","msg":"sender: closed","stream_id":"ysmbpr30"}
+{"time":"2026-05-01T19:56:57.5911752+02:00","level":"INFO","msg":"stream: closed","id":"ysmbpr30"}

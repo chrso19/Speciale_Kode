@@ -1,0 +1,12 @@
+{"time":"2026-04-29T10:15:39.9496169+02:00","level":"INFO","msg":"stream: starting","core version":"0.22.3"}
+{"time":"2026-04-29T10:15:40.2717288+02:00","level":"INFO","msg":"stream: created new stream","id":"803cyrub"}
+{"time":"2026-04-29T10:15:40.2717288+02:00","level":"INFO","msg":"handler: started","stream_id":"803cyrub"}
+{"time":"2026-04-29T10:15:40.2790917+02:00","level":"INFO","msg":"stream: started","id":"803cyrub"}
+{"time":"2026-04-29T10:15:40.2790917+02:00","level":"INFO","msg":"writer: started","stream_id":"803cyrub"}
+{"time":"2026-04-29T10:15:40.2790917+02:00","level":"INFO","msg":"sender: started","stream_id":"803cyrub"}
+{"time":"2026-04-29T10:52:46.686051+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-04-29T10:52:53.3846982+02:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-04-29T10:52:53.3971165+02:00","level":"INFO","msg":"stream: closing","id":"803cyrub"}
+{"time":"2026-04-29T10:52:53.3971165+02:00","level":"INFO","msg":"handler: closed","stream_id":"803cyrub"}
+{"time":"2026-04-29T10:52:53.3976277+02:00","level":"INFO","msg":"sender: closed","stream_id":"803cyrub"}
+{"time":"2026-04-29T10:52:53.3976913+02:00","level":"INFO","msg":"stream: closed","id":"803cyrub"}

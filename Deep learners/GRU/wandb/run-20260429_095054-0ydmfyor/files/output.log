@@ -1,0 +1,71 @@
+  Epoch 1/100
+Model trained in 4.79s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 151.691
+  Epoch 2/100
+Model trained in 4.86s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 129.291
+  Epoch 3/100
+Model trained in 4.83s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 111.554
+  Epoch 4/100
+Model trained in 4.90s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 97.385
+  Epoch 5/100
+Model trained in 4.91s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 85.692
+  Epoch 6/100
+Model trained in 4.81s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 76.950
+  Epoch 7/100
+Model trained in 4.70s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 70.670
+  Epoch 8/100
+Model trained in 4.91s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 66.558
+  Epoch 9/100
+Model trained in 4.69s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 64.478
+  Epoch 10/100
+Model trained in 4.90s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 63.374
+  Epoch 11/100
+Model trained in 4.85s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 63.324
+  Epoch 12/100
+Model trained in 4.89s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 63.932
+  Epoch 13/100
+Model trained in 5.06s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 65.081
+  Epoch 14/100
+Model trained in 4.96s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 66.787
+  Epoch 15/100
+Model trained in 4.94s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 68.916
+  Epoch 16/100
+Model trained in 5.00s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 71.238
+  Epoch 17/100
+Model trained in 4.93s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 73.746
+  Early stopping triggered.
+
+  best_val_SMAPE=63.324

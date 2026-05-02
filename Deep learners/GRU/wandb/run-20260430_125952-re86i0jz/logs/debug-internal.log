@@ -1,0 +1,12 @@
+{"time":"2026-04-30T12:59:52.2949687+02:00","level":"INFO","msg":"stream: starting","core version":"0.22.3"}
+{"time":"2026-04-30T12:59:52.6167143+02:00","level":"INFO","msg":"stream: created new stream","id":"re86i0jz"}
+{"time":"2026-04-30T12:59:52.6172642+02:00","level":"INFO","msg":"handler: started","stream_id":"re86i0jz"}
+{"time":"2026-04-30T12:59:52.6188129+02:00","level":"INFO","msg":"stream: started","id":"re86i0jz"}
+{"time":"2026-04-30T12:59:52.6188129+02:00","level":"INFO","msg":"writer: started","stream_id":"re86i0jz"}
+{"time":"2026-04-30T12:59:52.6188129+02:00","level":"INFO","msg":"sender: started","stream_id":"re86i0jz"}
+{"time":"2026-04-30T13:23:38.5328873+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-04-30T13:23:38.843449+02:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-04-30T13:23:38.8532749+02:00","level":"INFO","msg":"stream: closing","id":"re86i0jz"}
+{"time":"2026-04-30T13:23:38.8532749+02:00","level":"INFO","msg":"handler: closed","stream_id":"re86i0jz"}
+{"time":"2026-04-30T13:23:38.8532749+02:00","level":"INFO","msg":"sender: closed","stream_id":"re86i0jz"}
+{"time":"2026-04-30T13:23:38.8532749+02:00","level":"INFO","msg":"stream: closed","id":"re86i0jz"}
