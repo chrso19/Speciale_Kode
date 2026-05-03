@@ -593,7 +593,7 @@ def get_predictions(
         precomputed_predictions = precomputed_predictions.loc[:, ~precomputed_predictions.columns.duplicated()].copy()
         if "DKZone" in precomputed_predictions.columns:
             precomputed_predictions = precomputed_predictions.loc[precomputed_predictions["DKZone"] == dk_zone].copy()
-        precomputed_predictions["Time"] = pd.to_datetime(precomputed_predictions["Time"])
+        precomputed_predictions["Time"] = pd.to_datetime(precomputed_predictions["Time"], dayfirst = True)
 
     present_forecast_features = [
         feat for feat in FORECASTABLE_FEATURES if feat in data.columns and feat != target_col

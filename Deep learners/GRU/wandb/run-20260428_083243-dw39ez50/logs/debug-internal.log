@@ -1,0 +1,12 @@
+{"time":"2026-04-28T08:32:43.890599+02:00","level":"INFO","msg":"stream: starting","core version":"0.22.3"}
+{"time":"2026-04-28T08:32:44.2602014+02:00","level":"INFO","msg":"stream: created new stream","id":"dw39ez50"}
+{"time":"2026-04-28T08:32:44.2602014+02:00","level":"INFO","msg":"handler: started","stream_id":"dw39ez50"}
+{"time":"2026-04-28T08:32:44.2661503+02:00","level":"INFO","msg":"stream: started","id":"dw39ez50"}
+{"time":"2026-04-28T08:32:44.2661503+02:00","level":"INFO","msg":"writer: started","stream_id":"dw39ez50"}
+{"time":"2026-04-28T08:32:44.2661503+02:00","level":"INFO","msg":"sender: started","stream_id":"dw39ez50"}
+{"time":"2026-04-28T10:23:37.436679+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-04-28T10:23:37.8799133+02:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-04-28T10:23:37.8983903+02:00","level":"INFO","msg":"stream: closing","id":"dw39ez50"}
+{"time":"2026-04-28T10:23:37.8983951+02:00","level":"INFO","msg":"handler: closed","stream_id":"dw39ez50"}
+{"time":"2026-04-28T10:23:37.8983951+02:00","level":"INFO","msg":"sender: closed","stream_id":"dw39ez50"}
+{"time":"2026-04-28T10:23:37.8983951+02:00","level":"INFO","msg":"stream: closed","id":"dw39ez50"}

@@ -1,0 +1,89 @@
+_wandb:
+    value:
+        cli_version: 0.22.3
+        e:
+            yp0e7ia1bh0rmiwt67bqixe2pfne6iga:
+                codePath: c:\Users\chris\Documents\Python\Speciale_Kode\Deep learners\GRU\GRU multivariate cyclic copy.ipynb
+                codePathLocal: GRU multivariate cyclic copy.ipynb
+                cpu_count: 6
+                cpu_count_logical: 6
+                cudaVersion: "12.6"
+                disk:
+                    /:
+                        total: "511451660288"
+                        used: "406194020352"
+                email: chrso19@student.sdu.dk
+                executable: c:\Users\chris\anaconda3\envs\ds809\python.exe
+                git:
+                    commit: 9091f536b6b6a6431e3f26ae0666116c88df9a9b
+                    remote: https://github.com/chrso19/Speciale_Kode.git
+                gpu: NVIDIA GeForce GTX 1660
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Turing
+                      cudaCores: 1408
+                      memoryTotal: "6442450944"
+                      name: NVIDIA GeForce GTX 1660
+                      uuid: GPU-a6088c4c-8589-1858-2b74-35f404732e2f
+                host: DESKTOP-OAQ2DTA
+                memory:
+                    total: "17091796992"
+                os: Windows-10-10.0.19045-SP0
+                program: c:\Users\chris\Documents\Python\Speciale_Kode\Deep learners\GRU\GRU multivariate cyclic copy.ipynb
+                python: CPython 3.10.13
+                root: c:\Users\chris\Documents\Python\Speciale_Kode\Deep learners\GRU
+                startedAt: "2026-04-29T13:18:55.508098Z"
+                writerId: yp0e7ia1bh0rmiwt67bqixe2pfne6iga
+        m: []
+        python_version: 3.10.13
+        t:
+            "1":
+                - 1
+                - 5
+                - 35
+                - 53
+            "2":
+                - 1
+                - 5
+                - 35
+                - 53
+            "3":
+                - 2
+                - 13
+                - 15
+                - 16
+            "4": 3.10.13
+            "5": 0.22.3
+            "8":
+                - 1
+                - 3
+            "10":
+                - 20
+            "12": 0.22.3
+            "13": windows-amd64
+batch_size:
+    value: 32
+dropout:
+    value: 0
+epochs:
+    value: 12
+hidden_size:
+    value: 128
+layers:
+    value: 1
+learning_rate:
+    value: 0.0005
+price_zone:
+    value: DK1
+sequence_length:
+    value: 168
+train_end_time:
+    value: "2024-12-31 23:00:00"
+train_hours:
+    value: 17520
+train_start_time:
+    value: "2023-01-02 00:00:00"
+training_period:
+    value: tail_train_hours
+training_rows:
+    value: 17520

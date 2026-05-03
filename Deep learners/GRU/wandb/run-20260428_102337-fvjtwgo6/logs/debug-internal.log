@@ -1,0 +1,15 @@
+{"time":"2026-04-28T10:23:37.9146234+02:00","level":"INFO","msg":"stream: starting","core version":"0.22.3"}
+{"time":"2026-04-28T10:23:38.2567011+02:00","level":"INFO","msg":"stream: created new stream","id":"fvjtwgo6"}
+{"time":"2026-04-28T10:23:38.2567011+02:00","level":"INFO","msg":"handler: started","stream_id":"fvjtwgo6"}
+{"time":"2026-04-28T10:23:38.2632527+02:00","level":"INFO","msg":"stream: started","id":"fvjtwgo6"}
+{"time":"2026-04-28T10:23:38.2632527+02:00","level":"INFO","msg":"sender: started","stream_id":"fvjtwgo6"}
+{"time":"2026-04-28T10:23:38.2632527+02:00","level":"INFO","msg":"writer: started","stream_id":"fvjtwgo6"}
+{"time":"2026-04-28T10:25:49.9371066+02:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/Energinet_speciale/GRU_hyperparameter_search_DK1_cyclic/fvjtwgo6/file_stream","body":"{\"error\":\"context deadline exceeded\"}"}
+{"time":"2026-04-28T10:26:39.8184446+02:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/graphql","body":"{\"error\":\"An internal error occurred. Please contact support.\"}"}
+{"time":"2026-04-28T10:26:42.3344865+02:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/graphql","body":"{\"error\":\"An internal error occurred. Please contact support.\"}"}
+{"time":"2026-04-28T11:01:27.8995161+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-04-28T11:01:28.6662706+02:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-04-28T11:01:28.6875452+02:00","level":"INFO","msg":"stream: closing","id":"fvjtwgo6"}
+{"time":"2026-04-28T11:01:28.6875452+02:00","level":"INFO","msg":"handler: closed","stream_id":"fvjtwgo6"}
+{"time":"2026-04-28T11:01:28.6875452+02:00","level":"INFO","msg":"sender: closed","stream_id":"fvjtwgo6"}
+{"time":"2026-04-28T11:01:28.6875452+02:00","level":"INFO","msg":"stream: closed","id":"fvjtwgo6"}

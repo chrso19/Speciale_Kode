@@ -1,0 +1,12 @@
+{"time":"2026-04-28T18:08:32.6231238+02:00","level":"INFO","msg":"stream: starting","core version":"0.22.3"}
+{"time":"2026-04-28T18:08:32.9663367+02:00","level":"INFO","msg":"stream: created new stream","id":"gliyigic"}
+{"time":"2026-04-28T18:08:32.9663367+02:00","level":"INFO","msg":"handler: started","stream_id":"gliyigic"}
+{"time":"2026-04-28T18:08:32.9686591+02:00","level":"INFO","msg":"stream: started","id":"gliyigic"}
+{"time":"2026-04-28T18:08:32.9686591+02:00","level":"INFO","msg":"sender: started","stream_id":"gliyigic"}
+{"time":"2026-04-28T18:08:32.9686591+02:00","level":"INFO","msg":"writer: started","stream_id":"gliyigic"}
+{"time":"2026-04-28T18:39:51.3933752+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-04-28T18:39:51.7928145+02:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-04-28T18:39:51.8029297+02:00","level":"INFO","msg":"stream: closing","id":"gliyigic"}
+{"time":"2026-04-28T18:39:51.8029297+02:00","level":"INFO","msg":"handler: closed","stream_id":"gliyigic"}
+{"time":"2026-04-28T18:39:51.8044666+02:00","level":"INFO","msg":"sender: closed","stream_id":"gliyigic"}
+{"time":"2026-04-28T18:39:51.8044666+02:00","level":"INFO","msg":"stream: closed","id":"gliyigic"}

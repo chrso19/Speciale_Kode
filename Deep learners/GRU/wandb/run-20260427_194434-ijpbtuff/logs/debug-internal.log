@@ -1,0 +1,12 @@
+{"time":"2026-04-27T19:44:34.06641+02:00","level":"INFO","msg":"stream: starting","core version":"0.22.3"}
+{"time":"2026-04-27T19:44:34.7611314+02:00","level":"INFO","msg":"stream: created new stream","id":"ijpbtuff"}
+{"time":"2026-04-27T19:44:34.7611314+02:00","level":"INFO","msg":"handler: started","stream_id":"ijpbtuff"}
+{"time":"2026-04-27T19:44:34.7624854+02:00","level":"INFO","msg":"stream: started","id":"ijpbtuff"}
+{"time":"2026-04-27T19:44:34.7624854+02:00","level":"INFO","msg":"sender: started","stream_id":"ijpbtuff"}
+{"time":"2026-04-27T19:44:34.7624854+02:00","level":"INFO","msg":"writer: started","stream_id":"ijpbtuff"}
+{"time":"2026-04-27T20:11:07.7917104+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-04-27T20:11:08.1471912+02:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-04-27T20:11:08.1569062+02:00","level":"INFO","msg":"stream: closing","id":"ijpbtuff"}
+{"time":"2026-04-27T20:11:08.1569062+02:00","level":"INFO","msg":"handler: closed","stream_id":"ijpbtuff"}
+{"time":"2026-04-27T20:11:08.1579036+02:00","level":"INFO","msg":"sender: closed","stream_id":"ijpbtuff"}
+{"time":"2026-04-27T20:11:08.1579036+02:00","level":"INFO","msg":"stream: closed","id":"ijpbtuff"}

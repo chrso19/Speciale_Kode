@@ -1,0 +1,13 @@
+{"time":"2026-04-30T18:11:36.877183+02:00","level":"INFO","msg":"stream: starting","core version":"0.22.3"}
+{"time":"2026-04-30T18:11:37.1987019+02:00","level":"INFO","msg":"stream: created new stream","id":"6xdcomd6"}
+{"time":"2026-04-30T18:11:37.1987019+02:00","level":"INFO","msg":"handler: started","stream_id":"6xdcomd6"}
+{"time":"2026-04-30T18:11:37.2001475+02:00","level":"INFO","msg":"stream: started","id":"6xdcomd6"}
+{"time":"2026-04-30T18:11:37.2001475+02:00","level":"INFO","msg":"sender: started","stream_id":"6xdcomd6"}
+{"time":"2026-04-30T18:11:37.2001475+02:00","level":"INFO","msg":"writer: started","stream_id":"6xdcomd6"}
+{"time":"2026-04-30T18:44:28.8120449+02:00","level":"INFO","msg":"api: retrying HTTP error","status":503,"url":"https://api.wandb.ai/graphql","body":"upstream connect error or disconnect/reset before headers. reset reason: connection timeout"}
+{"time":"2026-04-30T18:47:05.9707281+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-04-30T18:47:06.2812766+02:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-04-30T18:47:06.2956277+02:00","level":"INFO","msg":"stream: closing","id":"6xdcomd6"}
+{"time":"2026-04-30T18:47:06.2956277+02:00","level":"INFO","msg":"handler: closed","stream_id":"6xdcomd6"}
+{"time":"2026-04-30T18:47:06.2956277+02:00","level":"INFO","msg":"sender: closed","stream_id":"6xdcomd6"}
+{"time":"2026-04-30T18:47:06.2956277+02:00","level":"INFO","msg":"stream: closed","id":"6xdcomd6"}

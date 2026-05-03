@@ -1,0 +1,159 @@
+Epoch search train source shape: (23616, 44)
+Epoch search validation source shape: (2688, 44)
+
+=== Epoch 1/100 ===
+Model trained in 3.77s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 159.859
+
+Epoch 001 | train_SMAPE=178.632 | val_SMAPE=159.859 | best_val_SMAPE=159.859 | patience=0/10
+
+=== Epoch 2/100 ===
+Model trained in 3.41s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 138.185
+
+Epoch 002 | train_SMAPE=156.492 | val_SMAPE=138.185 | best_val_SMAPE=138.185 | patience=0/10
+
+=== Epoch 3/100 ===
+Model trained in 3.52s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 116.734
+
+Epoch 003 | train_SMAPE=140.072 | val_SMAPE=116.734 | best_val_SMAPE=116.734 | patience=0/10
+
+=== Epoch 4/100 ===
+Model trained in 3.25s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 103.763
+
+Epoch 004 | train_SMAPE=126.821 | val_SMAPE=103.763 | best_val_SMAPE=103.763 | patience=0/10
+
+=== Epoch 5/100 ===
+Model trained in 3.91s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 88.963
+
+Epoch 005 | train_SMAPE=115.732 | val_SMAPE=88.963 | best_val_SMAPE=88.963 | patience=0/10
+
+=== Epoch 6/100 ===
+Model trained in 3.32s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 79.891
+
+Epoch 006 | train_SMAPE=106.285 | val_SMAPE=79.891 | best_val_SMAPE=79.891 | patience=0/10
+
+=== Epoch 7/100 ===
+Model trained in 3.36s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 73.307
+
+Epoch 007 | train_SMAPE=98.231 | val_SMAPE=73.307 | best_val_SMAPE=73.307 | patience=0/10
+
+=== Epoch 8/100 ===
+Model trained in 3.43s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 62.974
+
+Epoch 008 | train_SMAPE=91.330 | val_SMAPE=62.974 | best_val_SMAPE=62.974 | patience=0/10
+
+=== Epoch 9/100 ===
+Model trained in 3.38s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 58.575
+
+Epoch 009 | train_SMAPE=85.336 | val_SMAPE=58.575 | best_val_SMAPE=58.575 | patience=0/10
+
+=== Epoch 10/100 ===
+Model trained in 3.41s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 55.461
+
+Epoch 010 | train_SMAPE=80.262 | val_SMAPE=55.461 | best_val_SMAPE=55.461 | patience=0/10
+
+=== Epoch 11/100 ===
+Model trained in 3.48s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 53.781
+
+Epoch 011 | train_SMAPE=75.978 | val_SMAPE=53.781 | best_val_SMAPE=53.781 | patience=0/10
+
+=== Epoch 12/100 ===
+Model trained in 3.35s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 53.474
+
+Epoch 012 | train_SMAPE=72.130 | val_SMAPE=53.474 | best_val_SMAPE=53.474 | patience=0/10
+
+=== Epoch 13/100 ===
+Model trained in 3.31s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 86.295
+
+Epoch 013 | train_SMAPE=63.882 | val_SMAPE=86.295 | best_val_SMAPE=53.474 | patience=1/10
+
+=== Epoch 14/100 ===
+Model trained in 3.59s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 72.580
+
+Epoch 014 | train_SMAPE=56.929 | val_SMAPE=72.580 | best_val_SMAPE=53.474 | patience=2/10
+
+=== Epoch 15/100 ===
+Model trained in 3.42s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 72.299
+
+Epoch 015 | train_SMAPE=51.900 | val_SMAPE=72.299 | best_val_SMAPE=53.474 | patience=3/10
+
+=== Epoch 16/100 ===
+Model trained in 3.56s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 69.562
+
+Epoch 016 | train_SMAPE=48.023 | val_SMAPE=69.562 | best_val_SMAPE=53.474 | patience=4/10
+
+=== Epoch 17/100 ===
+Model trained in 3.61s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 70.220
+
+Epoch 017 | train_SMAPE=44.934 | val_SMAPE=70.220 | best_val_SMAPE=53.474 | patience=5/10
+
+=== Epoch 18/100 ===
+Model trained in 3.51s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 70.193
+
+Epoch 018 | train_SMAPE=42.146 | val_SMAPE=70.193 | best_val_SMAPE=53.474 | patience=6/10
+
+=== Epoch 19/100 ===
+Model trained in 3.31s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 70.988
+
+Epoch 019 | train_SMAPE=39.725 | val_SMAPE=70.988 | best_val_SMAPE=53.474 | patience=7/10
+
+=== Epoch 20/100 ===
+Model trained in 3.57s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 71.114
+
+Epoch 020 | train_SMAPE=37.622 | val_SMAPE=71.114 | best_val_SMAPE=53.474 | patience=8/10
+
+=== Epoch 21/100 ===
+Model trained in 4.55s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 70.322
+
+Epoch 021 | train_SMAPE=35.781 | val_SMAPE=70.322 | best_val_SMAPE=53.474 | patience=9/10
+
+=== Epoch 22/100 ===
+Model trained in 3.29s. Now validating on 4 folds...
+
+Average SMAPE across all weeks in all folds: 70.412
+
+Epoch 022 | train_SMAPE=34.097 | val_SMAPE=70.412 | best_val_SMAPE=53.474 | patience=10/10
+Early stopping triggered at epoch 22. Best epoch: 12.
+
+Selected BEST_EPOCHS = 12

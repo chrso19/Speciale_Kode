@@ -1,0 +1,16 @@
+{"time":"2026-04-30T18:47:06.3237013+02:00","level":"INFO","msg":"stream: starting","core version":"0.22.3"}
+{"time":"2026-04-30T18:47:06.9612966+02:00","level":"INFO","msg":"stream: created new stream","id":"lth1m6pl"}
+{"time":"2026-04-30T18:47:06.9612966+02:00","level":"INFO","msg":"handler: started","stream_id":"lth1m6pl"}
+{"time":"2026-04-30T18:47:06.9669818+02:00","level":"INFO","msg":"stream: started","id":"lth1m6pl"}
+{"time":"2026-04-30T18:47:06.9669818+02:00","level":"INFO","msg":"writer: started","stream_id":"lth1m6pl"}
+{"time":"2026-04-30T18:47:06.9669818+02:00","level":"INFO","msg":"sender: started","stream_id":"lth1m6pl"}
+{"time":"2026-04-30T18:57:08.2651068+02:00","level":"INFO","msg":"api: retrying HTTP error","status":503,"url":"https://api.wandb.ai/graphql","body":"upstream connect error or disconnect/reset before headers. reset reason: remote connection failure, transport failure reason: delayed connect error: Connection refused"}
+{"time":"2026-04-30T18:57:10.6771686+02:00","level":"INFO","msg":"api: retrying HTTP error","status":503,"url":"https://api.wandb.ai/graphql","body":"upstream connect error or disconnect/reset before headers. reset reason: remote connection failure, transport failure reason: delayed connect error: Connection refused"}
+{"time":"2026-04-30T18:57:15.1969855+02:00","level":"INFO","msg":"api: retrying HTTP error","status":503,"url":"https://api.wandb.ai/graphql","body":"upstream connect error or disconnect/reset before headers. reset reason: remote connection failure, transport failure reason: delayed connect error: Connection refused"}
+{"time":"2026-04-30T19:00:53.4477913+02:00","level":"INFO","msg":"api: retrying HTTP error","status":503,"url":"https://api.wandb.ai/graphql","body":"upstream connect error or disconnect/reset before headers. reset reason: remote connection failure, transport failure reason: delayed connect error: Connection refused"}
+{"time":"2026-04-30T19:08:39.9444917+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-04-30T19:08:40.2640498+02:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-04-30T19:08:40.2739791+02:00","level":"INFO","msg":"stream: closing","id":"lth1m6pl"}
+{"time":"2026-04-30T19:08:40.2739791+02:00","level":"INFO","msg":"handler: closed","stream_id":"lth1m6pl"}
+{"time":"2026-04-30T19:08:40.2739791+02:00","level":"INFO","msg":"sender: closed","stream_id":"lth1m6pl"}
+{"time":"2026-04-30T19:08:40.2739791+02:00","level":"INFO","msg":"stream: closed","id":"lth1m6pl"}
