@@ -1,0 +1,26 @@
+2026-05-02 22:24:34,995 INFO    MainThread:5676 [wandb_init.py:setup_run_log_directory():706] Logging user logs to c:\Users\Christine\Documents\Python\Speciale_Kode\Deep learners\GRU\wandb\run-20260502_222434-dv7wz54b\logs\debug.log
+2026-05-02 22:24:34,995 INFO    MainThread:5676 [wandb_init.py:setup_run_log_directory():707] Logging internal logs to c:\Users\Christine\Documents\Python\Speciale_Kode\Deep learners\GRU\wandb\run-20260502_222434-dv7wz54b\logs\debug-internal.log
+2026-05-02 22:24:34,996 INFO    MainThread:5676 [wandb_init.py:monkeypatch_ipython():625] configuring jupyter hooks <wandb.sdk.wandb_init._WandbInit object at 0x0000022F38324BB0>
+2026-05-02 22:24:34,996 INFO    MainThread:5676 [wandb_init.py:init():833] calling init triggers
+2026-05-02 22:24:34,996 INFO    MainThread:5676 [wandb_init.py:init():838] wandb.init called with sweep_config: {}
+config: {'price_zone': 'DK1', 'train_window': 26280, 'val_window': 8784, 'val_start': '2024-01-01 00:00:00', 'predict_period': 168, 'stride': 2184, 'split_setup': 2, 'combination': 7, 'num_combinations': 96, 'hidden_size': 32, 'layers': 1, 'learning_rate': 0.001, 'max_epochs': 100, 'patience': 6, 'batch_size': 64, 'sequence_length': 168, 'dropout': 0.0, '_wandb': {}}
+2026-05-02 22:24:34,998 INFO    MainThread:5676 [wandb_init.py:init():881] starting backend
+2026-05-02 22:24:34,998 INFO    MainThread:5676 [wandb_init.py:init():884] sending inform_init request
+2026-05-02 22:24:35,002 INFO    MainThread:5676 [wandb_init.py:init():892] backend started and connected
+2026-05-02 22:24:35,018 INFO    MainThread:5676 [wandb_run.py:_label_probe_notebook():1328] probe notebook
+2026-05-02 22:24:35,020 INFO    MainThread:5676 [wandb_init.py:init():962] updated telemetry
+2026-05-02 22:24:35,081 INFO    MainThread:5676 [wandb_init.py:init():986] communicating run to backend with 90.0 second timeout
+2026-05-02 22:24:35,759 INFO    MainThread:5676 [wandb_init.py:init():1033] starting run threads in backend
+2026-05-02 22:24:36,280 INFO    MainThread:5676 [wandb_run.py:_console_start():2506] atexit reg
+2026-05-02 22:24:36,280 INFO    MainThread:5676 [wandb_run.py:_redirect():2354] redirect: wrap_raw
+2026-05-02 22:24:36,280 INFO    MainThread:5676 [wandb_run.py:_redirect():2423] Wrapping output streams.
+2026-05-02 22:24:36,280 INFO    MainThread:5676 [wandb_run.py:_redirect():2446] Redirects installed.
+2026-05-02 22:24:36,281 INFO    MainThread:5676 [wandb_init.py:init():1073] run started, returning control to user process
+2026-05-02 23:25:23,210 INFO    MainThread:5676 [wandb_run.py:_finish():2272] finishing run Energinet_speciale/GRU_hyperparameter_search_DK1_cyclic/dv7wz54b
+2026-05-02 23:25:23,220 INFO    MainThread:5676 [jupyter.py:save_history():429] not saving jupyter history
+2026-05-02 23:25:23,220 INFO    MainThread:5676 [jupyter.py:save_ipynb():353] not saving jupyter notebook
+2026-05-02 23:25:23,221 INFO    MainThread:5676 [wandb_init.py:_jupyter_teardown():610] cleaning up jupyter logic
+2026-05-02 23:25:23,221 INFO    MainThread:5676 [wandb_run.py:_atexit_cleanup():2471] got exitcode: 0
+2026-05-02 23:25:23,221 INFO    MainThread:5676 [wandb_run.py:_restore():2453] restore
+2026-05-02 23:25:23,221 INFO    MainThread:5676 [wandb_run.py:_restore():2459] restore done
+2026-05-02 23:25:24,280 INFO    MainThread:5676 [wandb_run.py:_footer_sync_info():3835] logging synced files

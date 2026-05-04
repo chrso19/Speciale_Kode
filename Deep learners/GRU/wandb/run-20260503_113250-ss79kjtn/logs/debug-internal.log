@@ -1,0 +1,13 @@
+{"time":"2026-05-03T11:32:50.4582468+02:00","level":"INFO","msg":"stream: starting","core version":"0.22.3"}
+{"time":"2026-05-03T11:32:50.7937855+02:00","level":"INFO","msg":"stream: created new stream","id":"ss79kjtn"}
+{"time":"2026-05-03T11:32:50.7937855+02:00","level":"INFO","msg":"handler: started","stream_id":"ss79kjtn"}
+{"time":"2026-05-03T11:32:50.7983687+02:00","level":"INFO","msg":"writer: started","stream_id":"ss79kjtn"}
+{"time":"2026-05-03T11:32:50.7983687+02:00","level":"INFO","msg":"stream: started","id":"ss79kjtn"}
+{"time":"2026-05-03T11:32:50.7983687+02:00","level":"INFO","msg":"sender: started","stream_id":"ss79kjtn"}
+{"time":"2026-05-03T11:55:06.9999446+02:00","level":"INFO","msg":"api: retrying HTTP error","status":500,"url":"https://api.wandb.ai/files/Energinet_speciale/GRU_hyperparameter_search_DK1_cyclic/ss79kjtn/file_stream","body":"{\"error\":\"invalid connection\"}"}
+{"time":"2026-05-03T12:15:59.6290607+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-05-03T12:15:59.9755919+02:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-05-03T12:16:00.0040368+02:00","level":"INFO","msg":"stream: closing","id":"ss79kjtn"}
+{"time":"2026-05-03T12:16:00.0040368+02:00","level":"INFO","msg":"handler: closed","stream_id":"ss79kjtn"}
+{"time":"2026-05-03T12:16:00.005355+02:00","level":"INFO","msg":"sender: closed","stream_id":"ss79kjtn"}
+{"time":"2026-05-03T12:16:00.005355+02:00","level":"INFO","msg":"stream: closed","id":"ss79kjtn"}

@@ -1,0 +1,12 @@
+{"time":"2026-05-03T19:45:12.4445481+02:00","level":"INFO","msg":"stream: starting","core version":"0.22.3"}
+{"time":"2026-05-03T19:45:12.7746085+02:00","level":"INFO","msg":"stream: created new stream","id":"soupa7r3"}
+{"time":"2026-05-03T19:45:12.775201+02:00","level":"INFO","msg":"handler: started","stream_id":"soupa7r3"}
+{"time":"2026-05-03T19:45:12.776378+02:00","level":"INFO","msg":"writer: started","stream_id":"soupa7r3"}
+{"time":"2026-05-03T19:45:12.776378+02:00","level":"INFO","msg":"sender: started","stream_id":"soupa7r3"}
+{"time":"2026-05-03T19:45:12.776378+02:00","level":"INFO","msg":"stream: started","id":"soupa7r3"}
+{"time":"2026-05-03T20:16:29.9419676+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-05-03T20:16:30.2814439+02:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-05-03T20:16:30.3098467+02:00","level":"INFO","msg":"stream: closing","id":"soupa7r3"}
+{"time":"2026-05-03T20:16:30.3098467+02:00","level":"INFO","msg":"handler: closed","stream_id":"soupa7r3"}
+{"time":"2026-05-03T20:16:30.3107586+02:00","level":"INFO","msg":"sender: closed","stream_id":"soupa7r3"}
+{"time":"2026-05-03T20:16:30.3107586+02:00","level":"INFO","msg":"stream: closed","id":"soupa7r3"}
