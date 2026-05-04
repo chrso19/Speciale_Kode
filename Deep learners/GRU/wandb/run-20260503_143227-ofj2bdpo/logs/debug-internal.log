@@ -1,0 +1,12 @@
+{"time":"2026-05-03T14:32:27.7489066+02:00","level":"INFO","msg":"stream: starting","core version":"0.22.3"}
+{"time":"2026-05-03T14:32:28.0727756+02:00","level":"INFO","msg":"stream: created new stream","id":"ofj2bdpo"}
+{"time":"2026-05-03T14:32:28.0727756+02:00","level":"INFO","msg":"handler: started","stream_id":"ofj2bdpo"}
+{"time":"2026-05-03T14:32:28.0788385+02:00","level":"INFO","msg":"stream: started","id":"ofj2bdpo"}
+{"time":"2026-05-03T14:32:28.0788385+02:00","level":"INFO","msg":"writer: started","stream_id":"ofj2bdpo"}
+{"time":"2026-05-03T14:32:28.0788385+02:00","level":"INFO","msg":"sender: started","stream_id":"ofj2bdpo"}
+{"time":"2026-05-03T14:35:49.072153+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-05-03T14:35:49.4091189+02:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-05-03T14:35:49.4200138+02:00","level":"INFO","msg":"stream: closing","id":"ofj2bdpo"}
+{"time":"2026-05-03T14:35:49.4200138+02:00","level":"INFO","msg":"handler: closed","stream_id":"ofj2bdpo"}
+{"time":"2026-05-03T14:35:49.4211362+02:00","level":"INFO","msg":"sender: closed","stream_id":"ofj2bdpo"}
+{"time":"2026-05-03T14:35:49.4211362+02:00","level":"INFO","msg":"stream: closed","id":"ofj2bdpo"}
