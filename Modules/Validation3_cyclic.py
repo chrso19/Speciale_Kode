@@ -105,6 +105,8 @@ def run_cross_validation(
     use_forecasted_history: bool = True,
     dataset_validation: pd.DataFrame | None = None,
     include_remaining_2024: bool = True,
+    dataset_context: pd.DataFrame | None = None,
+    feature_columns: list | None = None,
 ):
     """
     Cross-validation with explicit support for split datasets.
@@ -133,8 +135,32 @@ def run_cross_validation(
         validation_source = None
         data = train_data_source.copy()
 
+    # Build a separate context dataset for get_predictions if provided.
+    # This allows lag computation across the full 2024 range even when
+    # the training set does not include 2024 non-validation data.
+    if dataset_context is not None:
+        context_source = dataset_context.copy().sort_values("Time").reset_index(drop=True)
+        if validation_source is not None:
+            context_data = (
+                pd.concat([context_source, validation_source], ignore_index=True)
+                .sort_values("Time")
+                .drop_duplicates(subset=["Time"], keep="last")
+                .reset_index(drop=True)
+            )
+        else:
+            context_data = context_source
+    else:
+        context_data = None
+
     target_col = data.columns[0]
-    feature_columns = [col for col in data.columns[1:] if col != "Time"]
+    if feature_columns is None:
+        feature_columns = [col for col in data.columns[1:] if col != "Time"]
+
+    # Bug fix: restrict context_data columns to target + Time + feature_columns so
+    # get_predictions sees the same feature set the model was trained on.
+    if context_data is not None:
+        keep_cols = [c for c in context_data.columns if c == "Time" or c == target_col or c in feature_columns]
+        context_data = context_data[keep_cols].copy()
 
     folds = _build_validation_folds(
         data=data,
@@ -148,7 +174,7 @@ def run_cross_validation(
     if split_setup != 2:
         print("Validation3 uses fixed validation folds; split_setup is ignored.")
 
-    val_start_ts = pd.to_datetime(val_start)
+    val_start_ts = pd.to_datetime(val_start, dayfirst= True)
     train_end = val_start_ts - pd.Timedelta(hours=1)
     train_start = train_end - pd.Timedelta(hours=train_window - 1)
 
@@ -231,9 +257,10 @@ def run_cross_validation(
                 (data["Time"] >= fold["val_start"]) & (data["Time"] <= fold["val_end"])
             ].copy()
 
+        prediction_context = context_data if dataset_context is not None else data
         preds_by_week = get_predictions(
             model=model,
-            dataset=data,
+            dataset=prediction_context,
             val_start=fold["val_start"],
             val_end=fold["val_end"],
             forecast_horizon=168,
