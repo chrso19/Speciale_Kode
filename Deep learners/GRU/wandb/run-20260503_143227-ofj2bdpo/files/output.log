@@ -1,6 +1,0 @@
-  Epoch 1/100
-Model trained in 2.38s. Now validating on 4 folds...
-
-Average SMAPE across all weeks in all folds: 182.856
-  Epoch 2/100
-Model trained in 2.19s. Now validating on 4 folds...

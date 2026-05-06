@@ -1,1 +1,0 @@
-{"best_val_SMAPE":182.85642115735536,"_timestamp":1.7778116515252335e+09,"val_window":8784,"hidden_size":32,"_runtime":199,"patience":6,"max_epochs":100,"predict_period":168,"patience_counter":0,"_step":0,"train_window":26280,"val_SMAPE":182.85642115735536,"learning_rate":0.0005,"_wandb":{"runtime":199},"sequence_length":24,"layers":2,"batch_size":64,"epoch":1,"combination":30}

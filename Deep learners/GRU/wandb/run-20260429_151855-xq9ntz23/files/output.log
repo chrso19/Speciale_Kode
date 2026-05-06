@@ -1,4 +1,0 @@
-Final training rows: 17520
-Final training window: 2023-01-02 00:00:00 -> 2024-12-31 23:00:00
-Trained final model on last TRAIN_HOURS=17520 of DK1 train set with BEST_EPOCHS=12.
-Model stored in W&B artifact.

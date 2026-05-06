@@ -40,7 +40,7 @@ def _build_validation_folds(
     if not val_start:
         raise ValueError("val_start must be provided, e.g. '2024-01-01 00:00:00'")
 
-    val_start_ts = pd.to_datetime(val_start)
+    val_start_ts = pd.to_datetime(val_start, dayfirst= True)
     val_window_end = val_start_ts + pd.Timedelta(hours=val_window - 1)
 
     data_max = data["Time"].max()
@@ -174,7 +174,7 @@ def run_cross_validation(
     if split_setup != 2:
         print("Validation3 uses fixed validation folds; split_setup is ignored.")
 
-    val_start_ts = pd.to_datetime(val_start)
+    val_start_ts = pd.to_datetime(val_start, dayfirst= True)
     train_end = val_start_ts - pd.Timedelta(hours=1)
     train_start = train_end - pd.Timedelta(hours=train_window - 1)
 
