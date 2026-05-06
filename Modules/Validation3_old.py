@@ -1,4 +1,3 @@
-import re
 import time
 
 import matplotlib.pyplot as plt
@@ -163,21 +162,6 @@ def run_cross_validation(
         keep_cols = [c for c in context_data.columns if c == "Time" or c == target_col or c in feature_columns]
         context_data = context_data[keep_cols].copy()
 
-    # Enrich context_data with any target-lag features required by feature_columns that
-    # are absent from context_data (e.g. DKPrice_lag1 added in the notebook load cell).
-    # get_predictions derives its own feature list from data.columns, so the column must
-    # be present even though the values are recomputed dynamically during prediction.
-    if context_data is not None:
-        lag_ref_ctx = context_data[["Time", target_col]].sort_values("Time").copy()
-        for col in feature_columns:
-            if col in context_data.columns:
-                continue
-            m = re.match(r'^(.+)_lag(\d+)$', col)
-            if m and m.group(1) == target_col:
-                lag_n = int(m.group(2))
-                lag_ref_ctx[col] = lag_ref_ctx[target_col].shift(lag_n)
-                context_data = context_data.merge(lag_ref_ctx[["Time", col]], on="Time", how="left")
-
     folds = _build_validation_folds(
         data=data,
         val_window=val_window,
@@ -229,27 +213,6 @@ def run_cross_validation(
             .drop_duplicates(subset=["Time"], keep="first")
             .reset_index(drop=True)
         )
-
-    # Compute any target-lag features that are in feature_columns but missing from
-    # train_data (e.g. DKPrice_lag1 computed in the notebook but absent from the raw
-    # dataset_train that was passed in).
-    lag_ref_train = (context_data if context_data is not None else data)[["Time", target_col]].sort_values("Time").copy()
-    enriched_lag_cols = []
-    for col in feature_columns:
-        if col in train_data.columns:
-            continue
-        m = re.match(r'^(.+)_lag(\d+)$', col)
-        if m and m.group(1) == target_col:
-            lag_n = int(m.group(2))
-            lag_tmp = lag_ref_train.copy()
-            lag_tmp[col] = lag_tmp[target_col].shift(lag_n)
-            train_data = train_data.merge(lag_tmp[["Time", col]], on="Time", how="left")
-            enriched_lag_cols.append(col)
-
-    # Drop any rows where an enriched lag column is NaN (first row(s) have no prior
-    # target value available and would otherwise corrupt model training).
-    if enriched_lag_cols:
-        train_data = train_data.dropna(subset=enriched_lag_cols).reset_index(drop=True)
 
     X_train = train_data[feature_columns]
     y_train = train_data[target_col]
