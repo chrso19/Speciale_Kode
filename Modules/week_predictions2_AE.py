@@ -1,0 +1,875 @@
+"""
+week_predictions2_AE.py – identical to week_predictions2.py except that
+get_predictions() handles an LSTM Autoencoder (seq2seq) model.
+
+When the model exposes a `predict_ae(encoder_x, decoder_x)` method the entire
+168-hour block is predicted in one forward pass instead of hour-by-hour:
+
+  encoder_x : (1, seq_len, n_features + 1)   – scaled features + unscaled DKPrice
+  decoder_x : (1, 168,    n_features)         – scaled future features
+
+All other logic (feature forecasting, caching, lag computation, etc.) is
+unchanged from week_predictions2.py.
+"""
+
+import glob
+import os
+import re
+import tempfile
+import warnings
+from functools import lru_cache
+
+import joblib
+import numpy as np
+import pandas as pd
+
+RF_MODEL_CACHE_ENV = "WANDB_RF_MODEL_DIR"
+DEFAULT_RF_MODEL_CACHE_DIR = r"C:\Users\n_and\Documents\Data Science\Speciale\Shallow_learners\Artifacts"
+try:
+    from skforecast.recursive import ForecasterEquivalentDate
+except ImportError:
+    try:
+        from skforecast import ForecasterEquivalentDate
+    except ImportError:
+        ForecasterEquivalentDate = None
+
+try:
+    from skforecast.exceptions import IgnoredArgumentWarning
+except ImportError:
+    IgnoredArgumentWarning = None
+
+
+KNOWN_FUTURE_FEATURES = ["Year", "Month", "Day", "WeekDay", "Hour"]
+WEATHER_FEATURES = ["WindSpeed", "Radiation"]
+CAPACITY_FEATURES = [
+    "OffshoreWindCapacity",
+    "OnshoreWindCapacity",
+    "SolarPowerCapacity",
+]
+
+FORECAST_METHODS = {
+    "DK1": {
+        "OffshoreWindPower": "rf",
+        "OnshoreWindPower": "rf",
+        "HydroPower": "lag24",
+        "SolarPower": "rf",
+        "Biomass": "lag24",
+        "Biogas": "skforecast",
+        "Waste": "lag24",
+        "FossilGas": "skforecast",
+        "FossilOil": "lag24",
+        "FossilHardCoal": "lag24",
+        "ExchangeGreatBelt": "skforecast",
+        "ExchangeGermany": "last_known_value",
+        "ExchangeSweden": "lag24",
+        "ExchangeNorway": "last_known_value",
+        "ExchangeNetherlands": "skforecast",
+        "DEPrice": "skforecast",
+        "NO2Price": "skforecast",
+        "SE3Price": "skforecast",
+        "SE4Price": "skforecast",
+        "NLPrice": "skforecast",
+        "GrossCon": "skforecast",
+        "TotalProduction": "rf",
+    },
+    "DK2": {
+        "OffshoreWindPower": "rf",
+        "OnshoreWindPower": "rf",
+        "HydroPower": "lag168",
+        "SolarPower": "rf",
+        "Biomass": "lag24",
+        "Biogas": "skforecast",
+        "Waste": "lag24",
+        "FossilGas": "skforecast",
+        "FossilOil": "lag24",
+        "FossilHardCoal": "lag24",
+        "ExchangeGreatBelt": "skforecast",
+        "ExchangeGermany": "lag24",
+        "ExchangeSweden": "last_known_value",
+        "ExchangeNorway": "last_known_value",
+        "ExchangeNetherlands": "last_known_value",
+        "DEPrice": "skforecast",
+        "NO2Price": "skforecast",
+        "SE3Price": "skforecast",
+        "SE4Price": "skforecast",
+        "NLPrice": "skforecast",
+        "GrossCon": "skforecast",
+        "TotalProduction": "rf",
+    },
+}
+
+RF_FEATURE_INPUTS = {
+    "OffshoreWindPower": [
+        "WindSpeed",
+        "OffshoreWindCapacity",
+        "OffshoreWindPower_lag24",
+        "OffshoreWindPower_lag168",
+        "Month",
+        "WeekDay",
+        "Hour",
+    ],
+    "OnshoreWindPower": [
+        "WindSpeed",
+        "OnshoreWindCapacity",
+        "OnshoreWindPower_lag24",
+        "OnshoreWindPower_lag168",
+        "Month",
+        "WeekDay",
+        "Hour",
+    ],
+    "SolarPower": [
+        "Radiation",
+        "SolarPowerCapacity",
+        "SolarPower_lag168",
+        "Month",
+        "WeekDay",
+        "Hour",
+    ],
+    "TotalProduction": [
+        "WindSpeed",
+        "Radiation",
+        "OffshoreWindCapacity",
+        "OnshoreWindCapacity",
+        "SolarPowerCapacity",
+        "TotalProduction_lag24",
+        "TotalProduction_lag168",
+        "Month",
+        "WeekDay",
+        "Hour",
+    ],
+}
+
+FORECASTABLE_FEATURES = sorted(
+    set(CAPACITY_FEATURES)
+    | set(FORECAST_METHODS["DK1"].keys())
+    | set(FORECAST_METHODS["DK2"].keys())
+)
+
+BASE_ALIASES = {
+    "Price": "DKPrice",
+}
+
+# Cache for expensive per-block exogenous feature forecasts so they can be reused
+# across repeated model evaluations (e.g., hyperparameter search combinations).
+_FORECAST_FEATURE_BLOCK_CACHE: dict[tuple, dict[int, pd.DataFrame]] = {}
+
+
+def clear_forecast_feature_cache():
+    """Clear cached exogenous feature forecasts used by get_predictions()."""
+    _FORECAST_FEATURE_BLOCK_CACHE.clear()
+
+
+def _build_feature_cache_key(
+    data: pd.DataFrame,
+    val_start: pd.Timestamp,
+    val_end: pd.Timestamp,
+    forecast_horizon: int,
+    dk_zone: str,
+    feature_columns: list[str],
+    rf_enabled: bool,
+    use_precomputed_feature_values: bool = False,
+    use_forecasted_history: bool = True,
+) -> tuple:
+    """Build a stable cache key for exogenous feature block forecasts."""
+    return (
+        str(data["Time"].min()),
+        str(data["Time"].max()),
+        len(data),
+        str(val_start),
+        str(val_end),
+        int(forecast_horizon),
+        dk_zone,
+        tuple(feature_columns),
+        bool(rf_enabled),
+        bool(use_precomputed_feature_values),
+        bool(use_forecasted_history),
+    )
+
+
+@lru_cache(maxsize=None)
+def _load_wandb_rf_model(feature: str, dk_zone: str):
+    import wandb
+
+    artifact_name = f"Energinet_speciale/Shallow_learners/rf_{feature}_{dk_zone}:latest"
+    api = wandb.Api(timeout=60)
+    artifact = api.artifact(artifact_name)
+
+    base_cache_dir = os.getenv(RF_MODEL_CACHE_ENV)
+    if base_cache_dir is None:
+        base_cache_dir = DEFAULT_RF_MODEL_CACHE_DIR
+    if base_cache_dir:
+        cache_dir = os.path.join(base_cache_dir, feature, dk_zone)
+    else:
+        cache_dir = os.path.join(tempfile.gettempdir(), "wandb_rf_cache", feature, dk_zone)
+    os.makedirs(cache_dir, exist_ok=True)
+    artifact_dir = artifact.download(root=cache_dir)
+
+    candidates = []
+    for pattern in ("*.joblib", "*.pkl", "*.pickle"):
+        candidates.extend(glob.glob(os.path.join(artifact_dir, "**", pattern), recursive=True))
+
+    if not candidates:
+        raise FileNotFoundError(
+            f"No serialized model file found in W&B artifact {artifact_name}."
+        )
+
+    return joblib.load(candidates[0])
+
+
+def _resolve_dk_zone(dataset: pd.DataFrame, dk_zone: str | None) -> str:
+    if dk_zone is not None:
+        if dk_zone not in {"DK1", "DK2"}:
+            raise ValueError("dk_zone must be 'DK1' or 'DK2'.")
+        return dk_zone
+
+    inferred = dataset.attrs.get("dk_zone")
+    if inferred in {"DK1", "DK2"}:
+        return inferred
+
+    raise ValueError(
+        "dk_zone could not be inferred from dataset.attrs['dk_zone']. "
+        "Pass dk_zone='DK1' or dk_zone='DK2' to get_predictions()."
+    )
+
+
+def _parse_lag_feature(col_name: str):
+    match = re.match(r"^(.*)_lag(\d+)$", col_name)
+    if not match:
+        return None, None
+    return match.group(1), int(match.group(2))
+
+
+def _resolve_base_feature(base_feature: str, target_col: str) -> str:
+    if base_feature == target_col:
+        return target_col
+    return BASE_ALIASES.get(base_feature, base_feature)
+
+
+def _build_rnn_window(
+    history_rows: pd.DataFrame,
+    current_row: dict,
+    feature_columns: list[str],
+    sequence_length: int,
+    target_col: str | None = None,
+    include_target_history: bool = False,
+    fitted_scaler=None,
+) -> np.ndarray:
+    """Build one (1, sequence_length, n_features) window for an RNN prediction."""
+
+    seq_len = max(1, int(sequence_length))
+    history_window = history_rows.loc[:, feature_columns].tail(max(seq_len - 1, 0)).copy()
+    current_frame = pd.DataFrame([current_row], columns=feature_columns)
+    window = pd.concat([history_window, current_frame], ignore_index=True)
+
+    if len(window) < seq_len:
+        pad_source = window.iloc[:1].copy()
+        pad = pd.concat([pad_source] * (seq_len - len(window)), ignore_index=True)
+        window = pd.concat([pad, window], ignore_index=True)
+
+    if fitted_scaler is not None:
+        window = pd.DataFrame(
+            fitted_scaler.transform(window),
+            columns=feature_columns,
+        )
+
+    window_np = window.to_numpy(dtype=np.float32)
+
+    if include_target_history:
+        if target_col is None or target_col not in history_rows.columns:
+            raise ValueError(
+                "Target-history input requested, but target column is missing from history rows."
+            )
+
+        history_target = history_rows.loc[:, target_col].tail(max(seq_len - 1, 0)).copy()
+        current_target = pd.Series([np.nan], dtype=float)
+        target_window = pd.concat([history_target, current_target], ignore_index=True)
+
+        if len(target_window) < seq_len:
+            first_val = target_window.iloc[0] if len(target_window) else np.nan
+            pad = pd.Series([first_val] * (seq_len - len(target_window)), dtype=float)
+            target_window = pd.concat([pad, target_window], ignore_index=True)
+
+        target_known_mask = target_window.notna().astype(np.float32).to_numpy().reshape(-1, 1)
+        target_values = target_window.fillna(0.0).astype(np.float32).to_numpy().reshape(-1, 1)
+        window_np = np.concatenate([window_np, target_values, target_known_mask], axis=1)
+
+    return window_np[np.newaxis, ...]
+
+
+def _series_up_to_time(
+    history_df: pd.DataFrame,
+    block_df: pd.DataFrame,
+    feature_name: str,
+    current_time: pd.Timestamp | None = None,
+) -> pd.Series:
+    hist = history_df[["Time", feature_name]].copy()
+
+    if feature_name in block_df.columns:
+        future = block_df[["Time", feature_name]].copy()
+    else:
+        future = pd.DataFrame({
+            "Time": block_df["Time"],
+            feature_name: np.nan
+        })
+
+    if current_time is not None:
+        future = future.loc[future["Time"] < current_time]
+
+    combined = pd.concat([hist, future], ignore_index=True)
+    combined = combined.dropna(subset=[feature_name]).sort_values("Time")
+    return combined.set_index("Time")[feature_name]
+
+
+def _value_from_lag(
+    history_df: pd.DataFrame,
+    block_df: pd.DataFrame,
+    feature_name: str,
+    timestamp: pd.Timestamp,
+    lag_hours: int,
+) -> float:
+    series = _series_up_to_time(history_df, block_df, feature_name)
+    ref_time = timestamp - pd.Timedelta(hours=lag_hours)
+    if ref_time not in series.index:
+        raise ValueError(
+            f"Cannot compute {feature_name}_lag{lag_hours} for {timestamp}. "
+            f"Missing historical value at {ref_time}."
+        )
+    return float(series.loc[ref_time])
+
+
+def _forecast_lag_feature_for_week(
+    history_df: pd.DataFrame,
+    block_df: pd.DataFrame,
+    feature_name: str,
+    lag_hours: int,
+):
+    preds = []
+    for timestamp in block_df["Time"]:
+        preds.append(
+            _value_from_lag(history_df, block_df, feature_name, timestamp, lag_hours)
+        )
+        block_df.loc[block_df["Time"] == timestamp, feature_name] = preds[-1]
+    return preds
+
+
+def _forecast_last_known_value_for_week(history_df: pd.DataFrame, feature_name: str, horizon: int):
+    value = float(history_df[feature_name].iloc[-1])
+    return [value] * horizon
+
+
+def _forecast_skforecast_feature_for_week(
+    history_df: pd.DataFrame,
+    block_df: pd.DataFrame,
+    feature_name: str,
+    offset: int = 168,
+    n_offsets: int = 3,
+    agg_func = np.mean,
+):
+    if ForecasterEquivalentDate is None:
+        raise ImportError(
+            "skforecast is not installed. Install it with e.g. 'pip install skforecast' "
+            "to use method='mean' equivalent-date forecasts."
+        )
+
+    hist_series = (
+        history_df[["Time", feature_name]]
+        .dropna()
+        .sort_values("Time")
+        .drop_duplicates(subset="Time")
+        .set_index("Time")[feature_name]
+        .astype(float)
+    )
+
+    hist_series = hist_series.asfreq("h")
+
+    required_history = offset * n_offsets
+    if len(hist_series) < required_history:
+        raise ValueError(
+            f"Not enough history to train skforecast equivalent-date model for {feature_name}. "
+            f"Need at least {required_history} hourly observations, got {len(hist_series)}."
+        )
+
+    forecaster = ForecasterEquivalentDate(
+        offset=offset,
+        n_offsets=n_offsets,
+        agg_func=agg_func,
+    )
+    with warnings.catch_warnings():
+        if IgnoredArgumentWarning is not None:
+            warnings.filterwarnings("ignore", category=IgnoredArgumentWarning)
+        warnings.filterwarnings(
+            "ignore",
+            message=r".*Bin edges must be unique.*",
+            category=UserWarning,
+        )
+        warnings.filterwarnings(
+            "ignore",
+            message=r".*reduced number of bins.*duplicate edges.*",
+            category=UserWarning,
+        )
+        forecaster.fit(y=hist_series)
+        preds = forecaster.predict(steps=len(block_df))
+
+    preds = np.asarray(preds, dtype=float).reshape(-1).tolist()
+
+    block_df.loc[:, feature_name] = preds
+    return preds
+
+
+def _build_rf_input_row(
+    history_df: pd.DataFrame,
+    block_df: pd.DataFrame,
+    feature_name: str,
+    timestamp: pd.Timestamp,
+    input_columns: list[str] | None = None,
+) -> pd.DataFrame:
+    row = {"Time": timestamp}
+    current_row = block_df.loc[block_df["Time"] == timestamp].iloc[0]
+
+    columns = input_columns if input_columns is not None else RF_FEATURE_INPUTS[feature_name]
+
+    for col in columns:
+        base_feature, lag_hours = _parse_lag_feature(col)
+        if lag_hours is not None:
+            resolved_base = _resolve_base_feature(base_feature, feature_name)
+            row[col] = _value_from_lag(history_df, block_df, resolved_base, timestamp, lag_hours)
+        else:
+            if col not in current_row.index:
+                raise ValueError(f"RF input column '{col}' not available for {feature_name}.")
+            row[col] = current_row[col]
+
+    return pd.DataFrame([row])[columns]
+
+
+def _forecast_rf_feature_for_week(
+    history_df: pd.DataFrame,
+    block_df: pd.DataFrame,
+    feature_name: str,
+    dk_zone: str,
+    rf_models: dict
+):
+    preds = []
+
+    model_key = f"{feature_name}_{dk_zone}"
+    if model_key not in rf_models:
+        raise ValueError(
+            f"RF model for '{feature_name}' in zone '{dk_zone}' not found in rf_models. "
+            f"Available keys: {list(rf_models.keys())}"
+        )
+
+    rf_model = rf_models[model_key]
+
+    predictor = getattr(rf_model, "named_steps", {}).get("model") if hasattr(rf_model, "named_steps") else rf_model
+    input_columns = (
+        list(getattr(rf_model, "feature_names_in_", []))
+        or list(getattr(predictor, "feature_names_in_", []))
+        or RF_FEATURE_INPUTS[feature_name]
+    )
+
+    for timestamp in block_df["Time"]:
+        X_row = _build_rf_input_row(
+            history_df=history_df,
+            block_df=block_df,
+            feature_name=feature_name,
+            timestamp=timestamp,
+            input_columns=input_columns,
+        )
+        pred = float(rf_model.predict(X_row)[0])
+        preds.append(pred)
+        block_df.loc[block_df["Time"] == timestamp, feature_name] = pred
+
+    return preds
+
+
+def _categorize_feature_columns(feature_columns: list[str], target_col: str):
+    uncategorized = []
+    for col in feature_columns:
+        if col in KNOWN_FUTURE_FEATURES + WEATHER_FEATURES + CAPACITY_FEATURES + FORECASTABLE_FEATURES:
+            continue
+        base_feature, lag_hours = _parse_lag_feature(col)
+        if lag_hours is not None:
+            resolved_base = _resolve_base_feature(base_feature, target_col)
+            if resolved_base == target_col or resolved_base in FORECASTABLE_FEATURES:
+                continue
+        uncategorized.append(col)
+
+    if uncategorized:
+        raise ValueError(
+            "The following feature columns are not categorized and may leak future information:\n"
+            + "\n".join(uncategorized)
+        )
+
+
+def _predict_ae_block(
+    model,
+    block_history: pd.DataFrame,
+    block_df: pd.DataFrame,
+    feature_columns: list[str],
+    target_col: str,
+    fitted_scaler,
+) -> list[dict]:
+    """
+    Build encoder/decoder inputs for an LSTM Autoencoder and return prediction rows.
+
+    The encoder receives the last `sequence_length` rows of block_history with
+    scaled features concatenated with the unscaled DKPrice column.
+    The decoder receives the 168-hour forecast feature values from block_df (scaled).
+    One forward pass produces all 168 predictions.
+    """
+    sequence_length = int(getattr(model, "sequence_length", 168))
+
+    # --- Encoder input: (1, seq_len, n_features + 1) ---
+    enc_hist = block_history.tail(sequence_length).copy()
+
+    enc_feat_raw = enc_hist.reindex(columns=feature_columns, fill_value=0.0).to_numpy(dtype=np.float32)
+    if fitted_scaler is not None:
+        enc_feat_raw = fitted_scaler.transform(
+            pd.DataFrame(enc_feat_raw, columns=feature_columns)
+        ).astype(np.float32)
+
+    enc_price = enc_hist[target_col].to_numpy(dtype=np.float32).reshape(-1, 1)
+    encoder_window = np.concatenate([enc_feat_raw, enc_price], axis=1)  # (seq, n+1)
+
+    # Pad with first row if history is shorter than sequence_length
+    if len(encoder_window) < sequence_length:
+        pad = np.repeat(encoder_window[:1], sequence_length - len(encoder_window), axis=0)
+        encoder_window = np.vstack([pad, encoder_window])
+
+    encoder_x = encoder_window[np.newaxis, :]  # (1, seq_len, n+1)
+
+    # --- Decoder input: (1, horizon, n_features) ---
+    dec_feat_raw = block_df.reindex(columns=feature_columns, fill_value=0.0).to_numpy(dtype=np.float32)
+    if fitted_scaler is not None:
+        dec_feat_raw = fitted_scaler.transform(
+            pd.DataFrame(dec_feat_raw, columns=feature_columns)
+        ).astype(np.float32)
+
+    decoder_x = dec_feat_raw[np.newaxis, :]  # (1, horizon, n)
+
+    # --- Predict all horizon hours at once ---
+    predictions_arr = model.predict_ae(encoder_x, decoder_x)  # (horizon,)
+
+    # --- Build target_rows list ---
+    target_rows = []
+    block_df_indexed = block_df.set_index("Time")
+    for i, timestamp in enumerate(block_df["Time"]):
+        new_row = {"Time": timestamp}
+        for col in feature_columns:
+            if col in block_df_indexed.columns and timestamp in block_df_indexed.index:
+                new_row[col] = float(block_df_indexed.loc[timestamp, col])
+            else:
+                new_row[col] = np.nan
+        new_row[target_col] = float(predictions_arr[i])
+        new_row["Prediction"] = float(predictions_arr[i])
+        target_rows.append(new_row)
+
+    return target_rows
+
+
+def get_predictions(
+    model,
+    dataset: pd.DataFrame,
+    val_start: pd.Timestamp,
+    val_end: pd.Timestamp,
+    forecast_horizon: int = 168,
+    fitted_scaler=None,
+    dk_zone: str | None = None,
+    rf_models=None,
+    use_precomputed_feature_values: bool = False,
+    precomputed_feature_predictions: pd.DataFrame | None = None,
+    use_forecasted_history: bool = True,
+):
+    """
+    Predict from val_start to val_end in week-sized blocks.
+
+    Identical to week_predictions2.get_predictions() except that when the model
+    exposes a `predict_ae(encoder_x, decoder_x)` method the entire 168-hour block
+    is predicted in one forward pass (LSTM Autoencoder path).
+
+    The encoder input is built from scaled historical features + unscaled DKPrice.
+    The decoder input is built from the pre-forecast block_df (scaled features only).
+    """
+
+    data = dataset.copy().sort_values("Time").reset_index(drop=True)
+    dk_zone = _resolve_dk_zone(data, dk_zone)
+
+    target_col = data.columns[0]
+    feature_columns = [col for col in data.columns[1:] if col != "Time"]
+    _categorize_feature_columns(feature_columns, target_col)
+
+    horizon_mask = (data["Time"] >= val_start) & (data["Time"] <= val_end)
+    horizon_hours = data.loc[horizon_mask, "Time"].tolist()
+    if not horizon_hours:
+        raise ValueError("No timestamps found between val_start and val_end.")
+
+    simulated_history = data.loc[data["Time"] < val_start].copy().reset_index(drop=True)
+    if simulated_history.empty:
+        raise ValueError("Need historical data before val_start to build lag features.")
+
+    rf_enabled = rf_models is not None and bool(rf_models)
+    cache_key = _build_feature_cache_key(
+        data=data,
+        val_start=val_start,
+        val_end=val_end,
+        forecast_horizon=forecast_horizon,
+        dk_zone=dk_zone,
+        feature_columns=feature_columns,
+        rf_enabled=rf_enabled,
+        use_precomputed_feature_values=use_precomputed_feature_values,
+        use_forecasted_history=use_forecasted_history,
+    )
+    cached_blocks = _FORECAST_FEATURE_BLOCK_CACHE.get(cache_key)
+    if cached_blocks is None:
+        cached_blocks = {}
+        _FORECAST_FEATURE_BLOCK_CACHE[cache_key] = cached_blocks
+
+    precomputed_predictions = None
+    if use_precomputed_feature_values and precomputed_feature_predictions is not None:
+        precomputed_predictions = precomputed_feature_predictions.copy()
+        precomputed_predictions = precomputed_predictions.loc[:, ~precomputed_predictions.columns.duplicated()].copy()
+        if "DKZone" in precomputed_predictions.columns:
+            precomputed_predictions = precomputed_predictions.loc[precomputed_predictions["DKZone"] == dk_zone].copy()
+        precomputed_predictions["Time"] = pd.to_datetime(precomputed_predictions["Time"], dayfirst=True)
+
+    present_forecast_features = [
+        feat for feat in FORECASTABLE_FEATURES if feat in data.columns and feat != target_col
+    ]
+    non_rf_features = [
+        feat
+        for feat in present_forecast_features
+        if FORECAST_METHODS[dk_zone].get(feat) in {"lag24", "lag168", "last_known_value", "skforecast"}
+    ]
+    rf_features = [
+        feat for feat in present_forecast_features if FORECAST_METHODS[dk_zone].get(feat) == "rf"
+    ]
+
+    # Detect AE model once before the block loop
+    is_ae = hasattr(model, "predict_ae")
+
+    block_predictions = {}
+    block_no = 1
+    block_start_idx = 0
+
+    while block_start_idx < len(horizon_hours):
+        block_hours = horizon_hours[block_start_idx:block_start_idx + forecast_horizon]
+        # Restart each block from true history before the block start.
+        block_history = data.loc[data["Time"] < block_hours[0]].copy().reset_index(drop=True)
+        block_true = data.loc[data["Time"].isin(block_hours)].copy().reset_index(drop=True)
+        if block_no in cached_blocks:
+            block_df = cached_blocks[block_no].copy()
+        else:
+            block_df = pd.DataFrame({"Time": block_true["Time"]})
+
+            # Start with any forecastable features that are already available in the dataset.
+            for col in present_forecast_features:
+                if col in block_true.columns:
+                    block_df[col] = block_true[col].to_numpy()
+
+            if precomputed_predictions is not None:
+                block_precomputed = precomputed_predictions.loc[
+                    precomputed_predictions["Time"].isin(block_hours)
+                ].sort_values("Time")
+                if len(block_precomputed) != len(block_df):
+                    raise ValueError(
+                        f"Expected {len(block_df)} precomputed rows for the validation block, "
+                        f"got {len(block_precomputed)}."
+                    )
+                for col in present_forecast_features:
+                    if col in block_precomputed.columns:
+                        block_df[col] = block_precomputed[col].to_numpy()
+
+            # Keep the legacy explicit copy for the standard known-future feature groups.
+            for col in KNOWN_FUTURE_FEATURES + WEATHER_FEATURES + CAPACITY_FEATURES:
+                if col in block_true.columns and col not in block_df.columns:
+                    block_df[col] = block_true[col].to_numpy()
+
+            # Forecast non-RF features one feature for the whole week before the next.
+            for feature_name in non_rf_features:
+                if use_precomputed_feature_values and feature_name in block_df.columns and block_df[feature_name].notna().all():
+                    continue
+                if (not use_forecasted_history) and feature_name in block_df.columns and block_df[feature_name].notna().all():
+                    continue
+
+                method = FORECAST_METHODS[dk_zone][feature_name]
+                if method == "lag24":
+                    block_df[feature_name] = _forecast_lag_feature_for_week(
+                        block_history, block_df, feature_name, 24
+                    )
+                elif method == "lag168":
+                    block_df[feature_name] = _forecast_lag_feature_for_week(
+                        block_history, block_df, feature_name, 168
+                    )
+                elif method == "last_known_value":
+                    block_df[feature_name] = _forecast_last_known_value_for_week(
+                        block_history, feature_name, len(block_df)
+                    )
+                elif method == "skforecast":
+                    block_df[feature_name] = _forecast_skforecast_feature_for_week(
+                        block_history, block_df, feature_name, offset=168, n_offsets=3, agg_func=np.mean
+                    )
+                else:
+                    raise ValueError(f"Unsupported forecast method '{method}' for {feature_name}.")
+
+            # RF features last.
+            for feature_name in rf_features:
+                if use_precomputed_feature_values and feature_name in block_df.columns and block_df[feature_name].notna().all():
+                    continue
+                if (not use_forecasted_history) and feature_name in block_df.columns and block_df[feature_name].notna().all():
+                    continue
+
+                if rf_models is None or not rf_models:
+                    warn_msg = (
+                        f"RF models not provided. Skipping RF feature forecast for '{feature_name}'. "
+                        f"Pass rf_models parameter to get_predictions() to forecast RF features."
+                    )
+                    warnings.warn(warn_msg)
+                    continue
+
+                block_df[feature_name] = _forecast_rf_feature_for_week(
+                    block_history, block_df, feature_name, dk_zone, rf_models
+                )
+
+            cached_blocks[block_no] = block_df.copy()
+
+        # ======================================================================
+        # AE PATH: predict all 168 hours in one forward pass
+        # ======================================================================
+        if is_ae:
+            target_rows = _predict_ae_block(
+                model=model,
+                block_history=block_history,
+                block_df=block_df,
+                feature_columns=feature_columns,
+                target_col=target_col,
+                fitted_scaler=fitted_scaler,
+            )
+
+        # ======================================================================
+        # STANDARD PATH: predict target recursively hour by hour
+        # ======================================================================
+        else:
+            target_rows = []
+            for timestamp in block_df["Time"]:
+                prepared_row = block_df.loc[block_df["Time"] == timestamp].iloc[0].to_dict()
+                new_row = {"Time": timestamp}
+
+                for col in feature_columns:
+                    if col in prepared_row:
+                        new_row[col] = prepared_row[col]
+                        continue
+
+                    base_feature, lag_hours = _parse_lag_feature(col)
+                    if lag_hours is not None:
+                        resolved_base = _resolve_base_feature(base_feature, target_col)
+                        if resolved_base == target_col:
+                            if use_forecasted_history:
+                                temp_history = block_history.copy()
+                                if target_rows:
+                                    target_future = pd.DataFrame(target_rows)
+                                    for req_col in temp_history.columns:
+                                        if req_col not in target_future.columns:
+                                            target_future[req_col] = np.nan
+                                    target_future = target_future[temp_history.columns]
+                                    temp_history = pd.concat([temp_history, target_future], ignore_index=True)
+                                temp_block = pd.DataFrame({"Time": [timestamp], resolved_base: [np.nan]})
+                                new_row[col] = _value_from_lag(temp_history, temp_block, resolved_base, timestamp, lag_hours)
+                            else:
+                                temp_block = pd.DataFrame({"Time": [timestamp], resolved_base: [np.nan]})
+                                new_row[col] = _value_from_lag(block_history, temp_block, resolved_base, timestamp, lag_hours)
+                        else:
+                            new_row[col] = _value_from_lag(block_history, block_df, resolved_base, timestamp, lag_hours)
+                        continue
+
+                    raise ValueError(
+                        f"Could not build feature column '{col}' for target model prediction."
+                    )
+
+                sequence_length = int(getattr(model, "sequence_length", 1))
+                history_rows = block_history.copy()
+                if target_rows:
+                    target_history = pd.DataFrame(target_rows)
+                    for col in feature_columns:
+                        if col not in target_history.columns:
+                            target_history[col] = np.nan
+                    history_rows = pd.concat([history_rows, target_history], ignore_index=True)
+
+                include_target_history = bool(getattr(model, "use_target_history", False))
+                X_window = _build_rnn_window(
+                    history_rows=history_rows,
+                    current_row=new_row,
+                    feature_columns=feature_columns,
+                    sequence_length=sequence_length,
+                    target_col=target_col,
+                    include_target_history=include_target_history,
+                    fitted_scaler=fitted_scaler,
+                )
+
+                y_pred = float(model.predict(X_window)[0])
+
+                new_row[target_col] = y_pred
+                new_row["Prediction"] = y_pred
+                target_rows.append(new_row)
+
+        block_out = pd.DataFrame(target_rows)
+        block_predictions[block_no] = block_out[["Time", "Prediction"]].copy()
+
+        if use_forecasted_history:
+            history_append = block_out.copy()
+            for col in data.columns:
+                if col not in history_append.columns:
+                    history_append[col] = np.nan
+            history_append = history_append[data.columns]
+        else:
+            history_append = data.loc[data["Time"].isin(block_hours)].copy()
+            for col in data.columns:
+                if col not in history_append.columns:
+                    history_append[col] = np.nan
+            history_append = history_append[data.columns]
+        simulated_history = pd.concat([simulated_history, history_append], ignore_index=True)
+
+        block_no += 1
+        block_start_idx += forecast_horizon
+
+    return block_predictions
+
+
+if __name__ == "__main__":
+    from pathlib import Path
+    from read_data import read_data
+
+    DKZone = "DK1"
+
+    (
+        DK1_train,
+        DK1_test,
+        DK2_train,
+        DK2_test,
+        DK1_train_weather,
+        DK1_test_weather,
+        DK2_train_weather,
+        DK2_test_weather
+    ) = read_data("combined_data_cleaned_v5.csv")
+
+    project_root = r"C:\Users\n_and\OneDrive\Delt skrivebord\Data Science\Speciale\Energinet\Delte scripts\Speciale_Kode"
+    prediction_path = Path(project_root) / "Data" / f"feature_predictions_{DKZone}_2024-2025.csv"
+    predictions = pd.read_csv(
+        prediction_path,
+        sep=";",
+        decimal=".",
+        parse_dates=["Time"],
+        dayfirst=True,
+    )
+
+    get_predictions(
+        model=None,
+        dataset=DK1_train,
+        val_start="2024-01-01 00:00:00",
+        val_end="2024-12-31 23:00:00",
+        forecast_horizon=168,
+        fitted_scaler=None,
+        dk_zone="DK1",
+        rf_models=None,
+        use_precomputed_feature_values=True,
+        precomputed_feature_predictions=predictions,
+        use_forecasted_history=True,
+    )
