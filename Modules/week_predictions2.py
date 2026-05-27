@@ -1,3 +1,4 @@
+from ast import If
 import glob
 import os
 import re
@@ -710,12 +711,18 @@ def get_predictions(
                     continue
 
                 block_df[feature_name] = _forecast_rf_feature_for_week(
-                    block_history, block_df, feature_name, dk_zone, rf_models
+                    block_history, 
+                    block_df, 
+                    feature_name, 
+                    dk_zone, 
+                    rf_models
                 )
 
             cached_blocks[block_no] = block_df.copy()
 
         # Predict target recursively hour by hour.
+        if __name__ == "__main__":
+            forecast_rows = []
         target_rows = []
         for timestamp in block_df["Time"]:
             prepared_row = block_df.loc[block_df["Time"] == timestamp].iloc[0].to_dict()
@@ -773,16 +780,24 @@ def get_predictions(
             )
             
             if __name__ == "__main__":
-                print(f"Model feature columns ({len(feature_columns)}): {feature_columns}")
-                print(f"X_window shape: {X_window.shape}")
-                print(f"Current row columns ({len(new_row)}): {list(new_row.keys())}")
-
-            y_pred = float(model.predict(X_window)[0])
+                if timestamp == block_df["Time"].iloc[0]:
+                    print(f"Model feature columns ({len(feature_columns)}): {feature_columns}")
+                    print(f"X_window shape: {X_window.shape}")
+                    print(f"Current row columns ({len(new_row)}): {list(new_row.keys())}")
+                print(new_row)
+                forecast_rows.append(new_row)
+                y_pred = 0.0
+            else:  
+                y_pred = float(model.predict(X_window)[0])
 
             new_row[target_col] = y_pred
             new_row["Prediction"] = y_pred
             target_rows.append(new_row)
 
+        if __name__ == "__main__":
+            if block_no == 1:
+                forecast_df = pd.DataFrame(forecast_rows)
+                print(f"Forecasted block {block_no}:\n{forecast_df}\n")
         block_out = pd.DataFrame(target_rows)
         block_predictions[block_no] = block_out[["Time", "Prediction"]].copy()
 
@@ -808,8 +823,11 @@ def get_predictions(
 if __name__ == "__main__":
     from pathlib import Path
     from read_data import read_data
+    from Load_RF_forecast_models import load_rf_models
     
     DKZone = "DK1"
+    use_precomputed_feature_values = False
+    USER = "Nikolaj"
 
     (
         DK1_train,
@@ -832,7 +850,13 @@ if __name__ == "__main__":
         dayfirst=True,
     )
 
-    get_predictions(
+    if not use_precomputed_feature_values:
+        print("Loading RF feature forecast models...")
+        rf_models = load_rf_models(user=USER)
+    else:
+        rf_models = None
+
+    block_predictions = get_predictions(
         model = None,
         dataset = DK1_train,
         val_start = "2024-01-01 00:00:00",
@@ -840,8 +864,9 @@ if __name__ == "__main__":
         forecast_horizon = 168,
         fitted_scaler=None,
         dk_zone = "DK1",
-        rf_models = None,
-        use_precomputed_feature_values = True,
+        rf_models = rf_models,
+        use_precomputed_feature_values = use_precomputed_feature_values,
         precomputed_feature_predictions = predictions,
         use_forecasted_history = True,
-    ) 
+    )
+
