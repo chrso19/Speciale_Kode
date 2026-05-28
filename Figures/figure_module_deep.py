@@ -6,6 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from typing import List
+from collections import OrderedDict
 
 def smape(y_true, y_pred):
     y_true = np.asarray(y_true, dtype=float)
@@ -41,11 +42,13 @@ def find_paths():
 def xpoints(folder: str, filename: str):
     filepath = os.path.join(folder, filename)
 
-    df = pd.read_csv(filepath)
+    df = pd.read_csv(filepath, sep = ";")
 
     column = "Date"
 
     xpoints = df[column].values.tolist()
+
+    xpoints = list(OrderedDict.fromkeys(xpoints))
 
     return xpoints
 
@@ -54,7 +57,7 @@ def generate_metrics_graph(file: str, model: str,
                            folder: str):
     
     filepath = os.path.join(folder, file)
-    df_model = pd.read_csv(filepath, decimal = ",")
+    df_model = pd.read_csv(filepath, sep = ";")
 
     df_actuals = df_model["DKPrice"].values.tolist()
     df_preds = df_model["Prediction"].values.tolist()
@@ -72,6 +75,11 @@ def generate_metrics_graph(file: str, model: str,
         smape_list.append(smape_val)
         rmse_list.append(rmse_val)
         mae_list.append(mae_val)
+    
+    if model == "LSTM-AE":
+        smape_list.pop()
+        rmse_list.pop()
+        mae_list.pop()
 
     fig, ax1 = plt.subplots(figsize = (30, 5))
 
@@ -109,19 +117,19 @@ def generate_smape_graph(price_zone: str, xpoints: List[str],
                          folder: str):
     filename_rnn = "DK1_RNN_2y_price_lag1excl_2024incl_4val_test_predictions.csv"
     filepath_rnn = os.path.join(folder, filename_rnn)
-    df_rnn = pd.read_csv(filepath_rnn, decimal = ",")
+    df_rnn = pd.read_csv(filepath_rnn, sep = ";")
 
     filename_gru = "DK1_GRU_2y_price_lag1excl_2024incl_4val_test_predictions.csv"
     filepath_gru = os.path.join(folder, filename_gru)
-    df_gru = pd.read_csv(filepath_gru, decimal = ",")
+    df_gru = pd.read_csv(filepath_gru, sep = ";")
 
     filename_lstm = "DK1_LSTM_2y_MaskExcl_Lag1Incl_2024Incl_4val_hidden64_layers3_bs64_seq24_drop0.2_test_predictions.csv"
     filepath_lstm = os.path.join(folder, filename_lstm)
-    df_lstm = pd.read_csv(filepath_lstm, decimal = ",")
+    df_lstm = pd.read_csv(filepath_lstm, sep = ";")
 
-    filename_lstmae = "DK1_LightGBM_predictions2.csv"
+    filename_lstmae = "DK1_LSTM_AE_2y_2024incl_Lag1_incl_lags_excl_4valFE_lays1_FE_LatDim33_EnHid28_DeHid48_EnDeLays2_test_predictions.csv"
     filepath_lstmae = os.path.join(folder, filename_lstmae)
-    df_lstmae = pd.read_csv(filepath_lstmae, decimal = ",")
+    df_lstmae = pd.read_csv(filepath_lstmae, sep = ";")
     
     actuals = df_rnn["DKPrice"].values.tolist()
 
@@ -169,19 +177,19 @@ def generate_rmse_graph(price_zone: str, xpoints: List[str],
                          folder: str):
     filename_rnn = "DK1_RNN_2y_price_lag1excl_2024incl_4val_test_predictions.csv"
     filepath_rnn = os.path.join(folder, filename_rnn)
-    df_rnn = pd.read_csv(filepath_rnn, decimal = ",")
+    df_rnn = pd.read_csv(filepath_rnn, sep = ";")
 
     filename_gru = "DK1_GRU_2y_price_lag1excl_2024incl_4val_test_predictions.csv"
     filepath_gru = os.path.join(folder, filename_gru)
-    df_gru = pd.read_csv(filepath_gru, decimal = ",")
+    df_gru = pd.read_csv(filepath_gru, sep = ";")
 
     filename_lstm = "DK1_LSTM_2y_MaskExcl_Lag1Incl_2024Incl_4val_hidden64_layers3_bs64_seq24_drop0.2_test_predictions.csv"
     filepath_lstm = os.path.join(folder, filename_lstm)
-    df_lstm = pd.read_csv(filepath_lstm, decimal = ",")
+    df_lstm = pd.read_csv(filepath_lstm, sep = ";")
 
-    filename_lstmae = "DK1_LightGBM_predictions2.csv"
+    filename_lstmae = "DK1_LSTM_AE_2y_2024incl_Lag1_incl_lags_excl_4valFE_lays1_FE_LatDim33_EnHid28_DeHid48_EnDeLays2_test_predictions.csv"
     filepath_lstmae = os.path.join(folder, filename_lstmae)
-    df_lstmae = pd.read_csv(filepath_lstmae, decimal = ",")
+    df_lstmae = pd.read_csv(filepath_lstmae, sep = ";")
     
     actuals = df_rnn["DKPrice"].values.tolist()
 
@@ -229,19 +237,19 @@ def generate_mae_graph(price_zone: str, xpoints: List[str],
                          folder: str):
     filename_rnn = "DK1_RNN_2y_price_lag1excl_2024incl_4val_test_predictions.csv"
     filepath_rnn = os.path.join(folder, filename_rnn)
-    df_rnn = pd.read_csv(filepath_rnn, decimal = ",")
+    df_rnn = pd.read_csv(filepath_rnn, sep = ";")
 
     filename_gru = "DK1_GRU_2y_price_lag1excl_2024incl_4val_test_predictions.csv"
     filepath_gru = os.path.join(folder, filename_gru)
-    df_gru = pd.read_csv(filepath_gru, decimal = ",")
+    df_gru = pd.read_csv(filepath_gru, sep = ";")
 
     filename_lstm = "DK1_LSTM_2y_MaskExcl_Lag1Incl_2024Incl_4val_hidden64_layers3_bs64_seq24_drop0.2_test_predictions.csv"
     filepath_lstm = os.path.join(folder, filename_lstm)
-    df_lstm = pd.read_csv(filepath_lstm, decimal = ",")
+    df_lstm = pd.read_csv(filepath_lstm, sep = ";")
 
-    filename_lstmae = "DK1_LightGBM_predictions2.csv"
+    filename_lstmae = "DK1_LSTM_AE_2y_2024incl_Lag1_incl_lags_excl_4valFE_lays1_FE_LatDim33_EnHid28_DeHid48_EnDeLays2_test_predictions.csv"
     filepath_lstmae = os.path.join(folder, filename_lstmae)
-    df_lstmae = pd.read_csv(filepath_lstmae, decimal = ",")
+    df_lstmae = pd.read_csv(filepath_lstmae, sep = ";")
     
     actuals = df_rnn["DKPrice"].values.tolist()
 
@@ -289,19 +297,19 @@ def generate_quarterly_smape_graph(price_zone: str, xpoints: List[str],
                                    folder: str):
     filename_rnn = "DK1_RNN_2y_price_lag1excl_2024incl_4val_test_predictions.csv"
     filepath_rnn = os.path.join(folder, filename_rnn)
-    df_rnn = pd.read_csv(filepath_rnn, decimal = ",")
+    df_rnn = pd.read_csv(filepath_rnn, sep = ";")
 
     filename_gru = "DK1_GRU_2y_price_lag1excl_2024incl_4val_test_predictions.csv"
     filepath_gru = os.path.join(folder, filename_gru)
-    df_gru = pd.read_csv(filepath_gru, decimal = ",")
+    df_gru = pd.read_csv(filepath_gru, sep = ";")
 
     filename_lstm = "DK1_LSTM_2y_MaskExcl_Lag1Incl_2024Incl_4val_hidden64_layers3_bs64_seq24_drop0.2_test_predictions.csv"
     filepath_lstm = os.path.join(folder, filename_lstm)
-    df_lstm = pd.read_csv(filepath_lstm, decimal = ",")
+    df_lstm = pd.read_csv(filepath_lstm, sep = ";")
 
-    filename_lstmae = "DK1_LightGBM_predictions2.csv"
+    filename_lstmae = "DK1_LSTM_AE_2y_2024incl_Lag1_incl_lags_excl_4valFE_lays1_FE_LatDim33_EnHid28_DeHid48_EnDeLays2_test_predictions.csv"
     filepath_lstmae = os.path.join(folder, filename_lstmae)
-    df_lstmae = pd.read_csv(filepath_lstmae, decimal = ",")
+    df_lstmae = pd.read_csv(filepath_lstmae, sep = ";")
     
     actuals = df_rnn["DKPrice"].values.tolist()
 
@@ -354,13 +362,13 @@ def generate_quarterly_smape_graph(price_zone: str, xpoints: List[str],
 
     fig.suptitle(f'Quarterly Daily SMAPE (%) for 2025 for Deep Learners for {price_zone}', fontsize=14)
     plt.tight_layout(pad = 2.0)
-    plt.savefig(f"SMAPE_graph_shallow_quarterly_{price_zone}")
+    plt.savefig(f"SMAPE_graph_deep_quarterly_{price_zone}")
     plt.show()
 
 def make_deep_7_day_metrics(folder, file, price_zone):
     filepath = os.path.join(folder, file)
 
-    df = pd.read_csv(filepath, decimal = ",")
+    df = pd.read_csv(filepath, sep = ";")
 
     actuals = df["DKPrice"].values.tolist()
     preds = df["Prediction"].values.tolist()
