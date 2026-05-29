@@ -443,5 +443,5 @@ def deep_7_day_mae(rnn_list, gru_list, lstm_list,
     plt.ylabel('MAE (DKK/MWh)')
     plt.title(f'7-Day MAE (DKK/MWh) Development for Deep Learners for {price_zone}')
     plt.legend()
-    plt.savefig(f"deep_7day_rmse_{price_zone}")
+    plt.savefig(f"deep_7day_mae_{price_zone}")
     plt.show()
