@@ -750,19 +750,19 @@ def baseline_data(file, folder):
     df = pd.read_csv(filepath)
 
     smape_averages = {}
-    column = "weekly_smape"
+    column = "daily_smape"
     for i in range(7):
         smape_averages[f'avg_smape_day_{i+1}'] = df[column].iloc[i::7].mean()
     smape_list = list(smape_averages.values())
 
     rmse_averages = {}
-    column = "weekly_rmse"
+    column = "daily_rmse"
     for i in range(7):
         rmse_averages[f'avg_rmse_day_{i+1}'] = df[column].iloc[i::7].mean()
     rmse_list = list(rmse_averages.values())
 
     mae_averages = {}
-    column = "weekly_mae"
+    column = "daily_mae"
     for i in range(7):
         mae_averages[f'avg_mae_day_{i+1}'] = df[column].iloc[i::7].mean()
     mae_list = list(mae_averages.values())
