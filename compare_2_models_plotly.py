@@ -25,19 +25,52 @@ METRIC = "MAE"
 # Choose frequency: "hourly" or "daily"
 # For PLOT_TYPE = "predictions", daily means daily average prices.
 # For PLOT_TYPE = "errors", daily means true daily metric values.
-FREQUENCY = "daily"
+FREQUENCY = "hourly"
 
 # Choose bidding zone: "DK1", "DK2", or None
 DK_ZONE = None
 
-MODEL_1_FILE = "Baseline/MovingAverage/DK1_predictions_MA.csv"
-MODEL_2_FILE = "Baseline/Seasonal/DK1_predictions_seasonal.csv"
+MODEL_FILES = [
+#    "Baseline/Naive/DK1_predictions_naive.csv",
+#    "Baseline/MovingAverage/DK1_predictions_MA.csv",
+#    "Baseline/Seasonal/DK1_predictions_seasonal.csv"
+]
 
-MODEL_1_NAME = "Moving Average"
-MODEL_2_NAME = "Seasonal Naïve"
+MODEL_FILES = [
+    #"Shallow learners/Final_eval/Shap/DK1_Lasso_predictions.csv",
+    #"Shallow learners/ARIMA-ARIMAX/DK1_ARIMAX_predictions_2.csv",
+    "Shallow learners/SVR/DK1_SVR_predictions.csv",
+]
 
-START_TIME = "2025-06-01 00:00:00"
-END_TIME = "2025-08-30 23:00:00"
+MODEL_FILES = [
+    "Deep learners/Simple RNN/RNN multivariate/DK1_RNN_multi_predictions.csv",
+    "Deep learners/LSTM Autoencoder/DK1_LSTM_AE_predictions.csv"
+]
+
+
+MODELS = [
+    "RNN",
+    "LSTM AE"
+    #"Lasso",
+    #"ARIMAX",
+    #"SVR"
+]
+
+START_TIME = "2025-07-01 00:00:00"
+END_TIME = "2025-07-30 23:00:00"
+
+
+def get_model_configs():
+    if len(MODEL_FILES) != len(MODELS):
+        raise ValueError(
+            "MODELS and MODEL_FILES must have the same length. "
+            f"Got {len(MODELS)} model names and {len(MODEL_FILES)} files."
+        )
+
+    if len(MODELS) == 0:
+        raise ValueError("Add at least one model to MODELS and MODEL_FILES.")
+
+    return list(zip(MODELS, MODEL_FILES))
 
 
 # ============================================================
@@ -138,6 +171,10 @@ def load_model_data(file_name):
 
     df = pd.read_csv(file_path)
 
+    # Support both comma- and semicolon-delimited exports.
+    if len(df.columns) == 1 and ";" in str(df.columns[0]):
+        df = pd.read_csv(file_path, sep=";")
+
     required_cols = [TIME_COL, ACTUAL_COL, PRED_COL]
     missing_cols = [col for col in required_cols if col not in df.columns]
 
@@ -156,11 +193,68 @@ def load_model_data(file_name):
 
         df = df.loc[df[ZONE_COL] == DK_ZONE].copy()
 
-    df[TIME_COL] = pd.to_datetime(df[TIME_COL])
+    time_raw = df[TIME_COL].astype(str).str.strip()
+    parsed_time = pd.to_datetime(time_raw, format="%Y-%m-%d %H:%M:%S", errors="coerce")
+
+    if parsed_time.isna().any():
+        fallback_parsers = [
+            {"format": "%Y-%m-%dT%H:%M:%S", "errors": "coerce"},
+            {"format": "%d-%m-%Y %H:%M:%S", "errors": "coerce"},
+            {"format": "%d/%m/%Y %H:%M:%S", "errors": "coerce"},
+            {"format": "mixed", "errors": "coerce"},
+            {"format": "mixed", "dayfirst": True, "errors": "coerce"},
+        ]
+
+        for parser_kwargs in fallback_parsers:
+            fallback_time = pd.to_datetime(time_raw, **parser_kwargs)
+            if fallback_time.notna().sum() > parsed_time.notna().sum():
+                parsed_time = fallback_time
+            if parsed_time.notna().all():
+                break
+
+    if parsed_time.isna().any():
+        bad_examples = time_raw[parsed_time.isna()].dropna().unique()[:5].tolist()
+        raise ValueError(
+            f"{file_name} has invalid values in '{TIME_COL}' that could not be parsed. "
+            f"Examples: {bad_examples}"
+        )
+
+    df[TIME_COL] = parsed_time
+
+    # Force numeric dtypes for metric math and cross-model subtraction.
+    # Supports both dot and comma decimal separators from different CSV exports.
+    for numeric_col in [ACTUAL_COL, PRED_COL]:
+        raw_values = df[numeric_col]
+        before_nulls = raw_values.isna().sum()
+
+        normalized = raw_values.astype(str).str.strip()
+        normalized = normalized.str.replace("\u00A0", "", regex=False)
+        normalized = normalized.str.replace(" ", "", regex=False)
+
+        comma_only_mask = normalized.str.contains(",", na=False) & ~normalized.str.contains(".", regex=False, na=False)
+        normalized.loc[comma_only_mask] = normalized.loc[comma_only_mask].str.replace(",", ".", regex=False)
+
+        both_separators_mask = normalized.str.contains(",", na=False) & normalized.str.contains(".", regex=False, na=False)
+        normalized.loc[both_separators_mask] = (
+            normalized.loc[both_separators_mask]
+            .str.replace(".", "", regex=False)
+            .str.replace(",", ".", regex=False)
+        )
+
+        df[numeric_col] = pd.to_numeric(normalized, errors="coerce")
+        new_nulls = df[numeric_col].isna().sum() - before_nulls
+
+        if new_nulls > 0:
+            failed_examples = raw_values[df[numeric_col].isna()].dropna().astype(str).unique()[:5]
+            raise ValueError(
+                f"{file_name} has {new_nulls} non-numeric values in '{numeric_col}'. "
+                f"Examples: {failed_examples.tolist()}"
+            )
+
     df = df.sort_values(TIME_COL).reset_index(drop=True)
 
-    start_time = pd.to_datetime(START_TIME)
-    end_time = pd.to_datetime(END_TIME)
+    start_time = pd.to_datetime(START_TIME, format="%Y-%m-%d %H:%M:%S")
+    end_time = pd.to_datetime(END_TIME, format="%Y-%m-%d %H:%M:%S")
 
     df = df.loc[
         (df[TIME_COL] >= start_time) &
@@ -219,64 +313,25 @@ def prepare_error_series(df, metric, frequency):
 # PREDICTION AGGREGATION
 # ============================================================
 
-def prepare_prediction_series(model_1_df, model_2_df, frequency):
+def prepare_prediction_series(df, frequency):
     frequency = frequency.lower()
 
-    model_1 = model_1_df[[TIME_COL, ACTUAL_COL, PRED_COL]].copy()
-    model_2 = model_2_df[[TIME_COL, ACTUAL_COL, PRED_COL]].copy()
-
-    model_1 = model_1.rename(
-        columns={
-            ACTUAL_COL: "actual_model_1",
-            PRED_COL: "prediction_model_1",
-        }
-    )
-
-    model_2 = model_2.rename(
-        columns={
-            ACTUAL_COL: "actual_model_2",
-            PRED_COL: "prediction_model_2",
-        }
-    )
-
-    merged = model_1.merge(model_2, on=TIME_COL, how="inner")
-
-    if merged.empty:
-        raise ValueError(
-            "The two model files have no overlapping timestamps after filtering."
-        )
-
-    actual_difference = (
-        merged["actual_model_1"] - merged["actual_model_2"]
-    ).abs().max()
-
-    if actual_difference > 1e-8:
-        print(
-            "Warning: Actual DKPrice values are not identical in the two files. "
-            "Using actual values from the first model file."
-        )
-
-    merged = merged.rename(
+    series = df[[TIME_COL, ACTUAL_COL, PRED_COL]].copy().rename(
         columns={
             TIME_COL: "plot_time",
-            "actual_model_1": "actual",
-            "prediction_model_1": "prediction_model_1",
-            "prediction_model_2": "prediction_model_2",
+            ACTUAL_COL: "actual",
+            PRED_COL: "prediction",
         }
     )
 
     if frequency == "hourly":
-        return merged[
-            ["plot_time", "actual", "prediction_model_1", "prediction_model_2"]
-        ]
+        return series[["plot_time", "actual", "prediction"]]
 
     if frequency == "daily":
-        merged["plot_time"] = merged["plot_time"].dt.floor("D")
+        series["plot_time"] = series["plot_time"].dt.floor("D")
 
         daily = (
-            merged.groupby("plot_time")[
-                ["actual", "prediction_model_1", "prediction_model_2"]
-            ]
+            series.groupby("plot_time")[["actual", "prediction"]]
             .mean()
             .reset_index()
         )
@@ -294,11 +349,7 @@ def plot_errors():
     metric = METRIC.upper()
     frequency = FREQUENCY.lower()
 
-    model_1_df = load_model_data(MODEL_1_FILE)
-    model_2_df = load_model_data(MODEL_2_FILE)
-
-    model_1_errors = prepare_error_series(model_1_df, metric, frequency)
-    model_2_errors = prepare_error_series(model_2_df, metric, frequency)
+    model_configs = get_model_configs()
 
     if metric in ["SMAPE", "MAPE"]:
         ylabel = f"{metric} (%)"
@@ -311,33 +362,23 @@ def plot_errors():
 
     fig = go.Figure()
 
-    fig.add_trace(
-        go.Scatter(
-            x=model_1_errors["plot_time"],
-            y=model_1_errors["error"],
-            mode="lines",
-            name=MODEL_1_NAME,
-            hovertemplate=(
-                "Time: %{x}<br>"
-                f"{metric}: " + "%{y:.3f}" + hover_suffix +
-                "<extra></extra>"
-            ),
-        )
-    )
+    for model_name, model_file in model_configs:
+        model_df = load_model_data(model_file)
+        model_errors = prepare_error_series(model_df, metric, frequency)
 
-    fig.add_trace(
-        go.Scatter(
-            x=model_2_errors["plot_time"],
-            y=model_2_errors["error"],
-            mode="lines",
-            name=MODEL_2_NAME,
-            hovertemplate=(
-                "Time: %{x}<br>"
-                f"{metric}: " + "%{y:.3f}" + hover_suffix +
-                "<extra></extra>"
-            ),
+        fig.add_trace(
+            go.Scatter(
+                x=model_errors["plot_time"],
+                y=model_errors["error"],
+                mode="lines",
+                name=model_name,
+                hovertemplate=(
+                    "Time: %{x}<br>"
+                    f"{metric}: " + "%{y:.3f}" + hover_suffix +
+                    "<extra></extra>"
+                ),
+            )
         )
-    )
 
     fig.update_layout(
         title=f"{title_frequency} {metric} error from {START_TIME} to {END_TIME}",
@@ -356,10 +397,28 @@ def plot_errors():
 def plot_predictions():
     frequency = FREQUENCY.lower()
 
-    model_1_df = load_model_data(MODEL_1_FILE)
-    model_2_df = load_model_data(MODEL_2_FILE)
+    model_configs = get_model_configs()
+    model_data = {
+        model_name: prepare_prediction_series(load_model_data(model_file), frequency)
+        for model_name, model_file in model_configs
+    }
 
-    plot_df = prepare_prediction_series(model_1_df, model_2_df, frequency)
+    first_model_name = model_configs[0][0]
+    actual_df = model_data[first_model_name]
+
+    for model_name in MODELS[1:]:
+        actual_difference = (
+            actual_df.set_index("plot_time")["actual"]
+            .sub(model_data[model_name].set_index("plot_time")["actual"], fill_value=np.nan)
+            .abs()
+        )
+
+        if actual_difference.dropna().max() > 1e-8:
+            print(
+                "Warning: Actual DKPrice values are not identical between "
+                f"{first_model_name} and {model_name}. "
+                "Using actual values from the first model file."
+            )
 
     title_frequency = "Hourly" if frequency == "hourly" else "Daily average"
 
@@ -367,8 +426,8 @@ def plot_predictions():
 
     fig.add_trace(
         go.Scatter(
-            x=plot_df["plot_time"],
-            y=plot_df["actual"],
+            x=actual_df["plot_time"],
+            y=actual_df["actual"],
             mode="lines",
             name="Actual DKPrice",
             hovertemplate=(
@@ -379,33 +438,22 @@ def plot_predictions():
         )
     )
 
-    fig.add_trace(
-        go.Scatter(
-            x=plot_df["plot_time"],
-            y=plot_df["prediction_model_1"],
-            mode="lines",
-            name=f"{MODEL_1_NAME} prediction",
-            hovertemplate=(
-                "Time: %{x}<br>"
-                f"{MODEL_1_NAME}: " + "%{y:.3f}"
-                "<extra></extra>"
-            ),
-        )
-    )
+    for model_name in MODELS:
+        model_df = model_data[model_name]
 
-    fig.add_trace(
-        go.Scatter(
-            x=plot_df["plot_time"],
-            y=plot_df["prediction_model_2"],
-            mode="lines",
-            name=f"{MODEL_2_NAME} prediction",
-            hovertemplate=(
-                "Time: %{x}<br>"
-                f"{MODEL_2_NAME}: " + "%{y:.3f}"
-                "<extra></extra>"
-            ),
+        fig.add_trace(
+            go.Scatter(
+                x=model_df["plot_time"],
+                y=model_df["prediction"],
+                mode="lines",
+                name=f"{model_name} prediction",
+                hovertemplate=(
+                    "Time: %{x}<br>"
+                    f"{model_name}: " + "%{y:.3f}"
+                    "<extra></extra>"
+                ),
+            )
         )
-    )
 
     fig.update_layout(
         title=(
@@ -417,8 +465,8 @@ def plot_predictions():
         template="plotly_white",
         hovermode="x unified",
         legend_title="Series",
-        width=1200,
-        height=600,
+        width=1600,
+        height=500,
     )
 
     fig.show()

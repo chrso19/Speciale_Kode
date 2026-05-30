@@ -179,6 +179,7 @@ def run_cross_validation(
     # Validate on all folds WITHOUT retraining
     for fold in folds:
         fold_no = fold["fold"]
+        # print(f"Validating fold {fold_no}: val_start={fold['val_start']}, val_end={fold['val_end']}")
 
         val_data = data.loc[
             (data["Time"] >= fold["val_start"]) &
