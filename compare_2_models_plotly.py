@@ -36,11 +36,7 @@ MODEL_FILES = [
 #    "Baseline/Seasonal/DK1_predictions_seasonal.csv"
 ]
 
-MODEL_FILES = [
-    #"Shallow learners/Final_eval/Shap/DK1_Lasso_predictions.csv",
-    #"Shallow learners/ARIMA-ARIMAX/DK1_ARIMAX_predictions_2.csv",
-    "Shallow learners/SVR/DK1_SVR_predictions.csv",
-]
+
 
 MODEL_FILES = [
     "Deep learners/Simple RNN/RNN multivariate/DK1_RNN_multi_predictions.csv",
@@ -48,12 +44,21 @@ MODEL_FILES = [
 ]
 
 
+MODEL_FILES = [
+    "Shallow learners/ARIMA-ARIMAX/DK1_ARIMA_predictions_2.csv",
+    "Shallow learners/ARIMA-ARIMAX/DK1_ARIMAX_predictions_2.csv",
+]
+
+MODEL_FILES = [
+    "Shallow learners/Final_eval/Shap/DK1_Lasso_predictions.csv",
+    "Shallow learners/SVR/DK1_SVR_predictions.csv",
+]
+
 MODELS = [
-    "RNN",
-    "LSTM AE"
-    #"Lasso",
-    #"ARIMAX",
-    #"SVR"
+    #"ARIMA",
+    #"ARIMAX"
+    "Lasso",
+    "SVR"
 ]
 
 START_TIME = "2025-07-01 00:00:00"
@@ -167,13 +172,21 @@ def calculate_pointwise_error(y_true, y_pred, metric):
 # ============================================================
 
 def load_model_data(file_name):
+    import csv as _csv
+
     file_path = DATA_FOLDER / file_name
 
-    df = pd.read_csv(file_path)
+    # Detect the actual field separator so that comma-sep, semicolon-sep, and
+    # comma-decimal-with-comma-sep files are all handled correctly.
+    try:
+        with open(file_path, newline="", encoding="utf-8-sig") as _f:
+            _sample = _f.read(8192)
+        _dialect = _csv.Sniffer().sniff(_sample, delimiters=",;\t|")
+        _sep = _dialect.delimiter
+    except (_csv.Error, OSError):
+        _sep = ","  # safe fallback
 
-    # Support both comma- and semicolon-delimited exports.
-    if len(df.columns) == 1 and ";" in str(df.columns[0]):
-        df = pd.read_csv(file_path, sep=";")
+    df = pd.read_csv(file_path, sep=_sep, encoding="utf-8-sig")
 
     required_cols = [TIME_COL, ACTUAL_COL, PRED_COL]
     missing_cols = [col for col in required_cols if col not in df.columns]

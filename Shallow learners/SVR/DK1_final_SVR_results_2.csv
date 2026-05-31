@@ -1,0 +1,2 @@
+kernel,C,gamma,epsilon,degree,avg_smape,avg_weekly_rmse,avg_weekly_mae,avg_weekly_smape,avg_daily_rmse,avg_daily_mae,avg_daily_smape,avg_smape_day_1,avg_smape_day_2,avg_smape_day_3,avg_smape_day_4,avg_smape_day_5,avg_smape_day_6,avg_smape_day_7
+poly,"0,1",auto,"0,1",2,"54,803323534874266","388,4638364211981","295,3519640611492","54,803323534874266","366,05832980179633","295,3519640611492","54,803323534874266","48,058705041374616","46,56228927486112","51,03326399512502","62,035280247321275","71,83155207411029","52,722980954356665","51,37919315697093"
