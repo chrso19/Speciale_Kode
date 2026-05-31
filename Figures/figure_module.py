@@ -42,6 +42,8 @@ def find_paths():
 
     final_eval_folder = os.path.join(shallow_folder, "Final_eval")
 
+    final_eval_folder = os.path.join(final_eval_folder, "Shap")
+
     return naive_folder, MA_folder, seasonal_folder, final_eval_folder
 
 def xpoints(folder: str, filename: str):
