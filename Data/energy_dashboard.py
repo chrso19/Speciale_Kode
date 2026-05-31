@@ -545,6 +545,210 @@ def create_weather_chart(df, combine_zones):
     return fig
 
 
+def create_wind_chart(df, combine_zones):
+    """Create wind chart showing wind speed and wind power production (offshore and onshore)"""
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    if combine_zones:
+        # Combine DK1 and DK2 for production (sum), average for weather
+        production_cols = ['OffshoreWindPower', 'OnshoreWindPower']
+        weather_cols = ['WindSpeed']
+        
+        agg_dict = {col: 'sum' for col in production_cols}
+        agg_dict.update({col: 'mean' for col in weather_cols})
+        
+        combined_df = df.groupby('TimeUTC').agg(agg_dict).reset_index()
+
+        # Add production lines to primary y-axis
+        production_colors = {
+            'OffshoreWindPower': 'steelblue',
+            'OnshoreWindPower': 'green'
+        }
+        production_names = {
+            'OffshoreWindPower': 'Offshore Wind',
+            'OnshoreWindPower': 'Onshore Wind'
+        }
+
+        for col, color in production_colors.items():
+            if col in combined_df.columns:
+                fig.add_trace(go.Scatter(
+                    x=combined_df['TimeUTC'],
+                    y=combined_df[col],
+                    mode='lines',
+                    name=production_names[col],
+                    line=dict(color=color, width=2),
+                    hovertemplate='<b>%{fullData.name}</b><br>' +
+                                  'Time: %{x}<br>' +
+                                  'Power: %{y:.2f} MW<br>' +
+                                  '<extra></extra>'
+                ), secondary_y=False)
+
+        # Add weather data to secondary y-axis
+        if 'WindSpeed' in combined_df.columns:
+            fig.add_trace(go.Scatter(
+                x=combined_df['TimeUTC'],
+                y=combined_df['WindSpeed'],
+                mode='lines',
+                name='Wind Speed',
+                line=dict(color='navy', width=2, dash='dash'),
+                hovertemplate='<b>Wind Speed</b><br>' +
+                              'Time: %{x}<br>' +
+                              'Speed: %{y:.2f} m/s<br>' +
+                              '<extra></extra>'
+            ), secondary_y=True)
+
+    else:
+        # Separate DK1 and DK2
+        production_colors = {'DK1': {'OffshoreWindPower': 'steelblue', 'OnshoreWindPower': 'green'},
+                            'DK2': {'OffshoreWindPower': 'lightblue', 'OnshoreWindPower': 'lightgreen'}}
+        weather_colors = {'DK1': 'navy', 'DK2': 'darkslategray'}
+        production_names = {
+            'OffshoreWindPower': 'Offshore Wind',
+            'OnshoreWindPower': 'Onshore Wind'
+        }
+
+        for zone in ['DK1', 'DK2']:
+            zone_df = df[df['DKZone'] == zone]
+
+            # Add production lines for this zone
+            for col in ['OffshoreWindPower', 'OnshoreWindPower']:
+                if col in zone_df.columns:
+                    fig.add_trace(go.Scatter(
+                        x=zone_df['TimeUTC'],
+                        y=zone_df[col],
+                        mode='lines',
+                        name=f'{production_names[col]} ({zone})',
+                        line=dict(color=production_colors[zone][col], width=2),
+                        hovertemplate=f'<b>{production_names[col]} ({zone})</b><br>' +
+                                      'Time: %{x}<br>' +
+                                      'Power: %{y:.2f} MW<br>' +
+                                      '<extra></extra>'
+                    ), secondary_y=False)
+
+            # Add weather data for this zone
+            if 'WindSpeed' in zone_df.columns:
+                fig.add_trace(go.Scatter(
+                    x=zone_df['TimeUTC'],
+                    y=zone_df['WindSpeed'],
+                    mode='lines',
+                    name=f'Wind Speed ({zone})',
+                    line=dict(color=weather_colors[zone], width=2, dash='dash'),
+                    hovertemplate=f'<b>Wind Speed ({zone})</b><br>' +
+                                  'Time: %{x}<br>' +
+                                  'Speed: %{y:.2f} m/s<br>' +
+                                  '<extra></extra>'
+                ), secondary_y=True)
+
+    # Set axis titles
+    fig.update_xaxes(title_text="Time")
+    fig.update_yaxes(title_text="Wind Power Production (MW)", secondary_y=False)
+    fig.update_yaxes(title_text="Wind Speed (m/s)", secondary_y=True)
+
+    fig.update_layout(
+        title='Wind Resources: Wind Speed & Wind Power Production',
+        hovermode='x unified',
+        height=500,
+        showlegend=True,
+        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02)
+    )
+
+    return fig
+
+
+def create_solar_chart(df, combine_zones):
+    """Create solar chart showing solar radiation and solar power production"""
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    if combine_zones:
+        # Combine DK1 and DK2 for production (sum), average for weather
+        production_cols = ['SolarPower']
+        weather_cols = ['Radiation']
+        
+        agg_dict = {col: 'sum' for col in production_cols}
+        agg_dict.update({col: 'mean' for col in weather_cols})
+        
+        combined_df = df.groupby('TimeUTC').agg(agg_dict).reset_index()
+
+        # Add production line to primary y-axis
+        if 'SolarPower' in combined_df.columns:
+            fig.add_trace(go.Scatter(
+                x=combined_df['TimeUTC'],
+                y=combined_df['SolarPower'],
+                mode='lines',
+                name='Solar Power',
+                line=dict(color='orange', width=2),
+                hovertemplate='<b>Solar Power</b><br>' +
+                              'Time: %{x}<br>' +
+                              'Power: %{y:.2f} MW<br>' +
+                              '<extra></extra>'
+            ), secondary_y=False)
+
+        # Add radiation to secondary y-axis
+        if 'Radiation' in combined_df.columns:
+            fig.add_trace(go.Scatter(
+                x=combined_df['TimeUTC'],
+                y=combined_df['Radiation'],
+                mode='lines',
+                name='Solar Radiation',
+                line=dict(color='red', width=2, dash='dash'),
+                hovertemplate='<b>Solar Radiation</b><br>' +
+                              'Time: %{x}<br>' +
+                              'Radiation: %{y:.2f} W/m²<br>' +
+                              '<extra></extra>'
+            ), secondary_y=True)
+
+    else:
+        # Separate DK1 and DK2
+        production_colors = {'DK1': 'orange', 'DK2': 'lightyellow'}
+        weather_colors = {'DK1': 'red', 'DK2': 'indianred'}
+
+        for zone in ['DK1', 'DK2']:
+            zone_df = df[df['DKZone'] == zone]
+
+            # Add production line for this zone
+            if 'SolarPower' in zone_df.columns:
+                fig.add_trace(go.Scatter(
+                    x=zone_df['TimeUTC'],
+                    y=zone_df['SolarPower'],
+                    mode='lines',
+                    name=f'Solar Power ({zone})',
+                    line=dict(color=production_colors[zone], width=2),
+                    hovertemplate=f'<b>Solar Power ({zone})</b><br>' +
+                                  'Time: %{x}<br>' +
+                                  'Power: %{y:.2f} MW<br>' +
+                                  '<extra></extra>'
+                ), secondary_y=False)
+
+            # Add radiation data for this zone
+            if 'Radiation' in zone_df.columns:
+                fig.add_trace(go.Scatter(
+                    x=zone_df['TimeUTC'],
+                    y=zone_df['Radiation'],
+                    mode='lines',
+                    name=f'Solar Radiation ({zone})',
+                    line=dict(color=weather_colors[zone], width=2, dash='dash'),
+                    hovertemplate=f'<b>Solar Radiation ({zone})</b><br>' +
+                                  'Time: %{x}<br>' +
+                                  'Radiation: %{y:.2f} W/m²<br>' +
+                                  '<extra></extra>'
+                ), secondary_y=True)
+
+    # Set axis titles
+    fig.update_xaxes(title_text="Time")
+    fig.update_yaxes(title_text="Solar Power Production (MW)", secondary_y=False)
+    fig.update_yaxes(title_text="Solar Radiation (W/m²)", secondary_y=True)
+
+    fig.update_layout(
+        title='Solar Resources: Solar Radiation & Solar Power Production',
+        hovermode='x unified',
+        height=500,
+        showlegend=True,
+        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02)
+    )
+
+    return fig
+
+
 def create_co2_chart(df, combine_zones):
     """Create CO2 per kWh line chart"""
     fig = go.Figure()
@@ -726,6 +930,26 @@ app.layout = dbc.Container([
     dbc.Row([
         dbc.Col([
             dcc.Loading(
+                id="loading-wind",
+                type="default",
+                children=dcc.Graph(id='wind-chart')
+            )
+        ], width=12)
+    ], className="mb-4"),
+
+    dbc.Row([
+        dbc.Col([
+            dcc.Loading(
+                id="loading-solar",
+                type="default",
+                children=dcc.Graph(id='solar-chart')
+            )
+        ], width=12)
+    ], className="mb-4"),
+
+    dbc.Row([
+        dbc.Col([
+            dcc.Loading(
                 id="loading-weather",
                 type="default",
                 children=dcc.Graph(id='weather-chart')
@@ -757,6 +981,8 @@ app.layout = dbc.Container([
      Output('production-chart', 'figure'),
      Output('exchange-chart', 'figure'),
      Output('price-chart', 'figure'),
+     Output('wind-chart', 'figure'),
+     Output('solar-chart', 'figure'),
      Output('weather-chart', 'figure'),
      Output('co2-chart', 'figure')],
     [Input('update-button', 'n_clicks')],
@@ -786,10 +1012,12 @@ def update_charts(n_clicks, resolution, start_date, end_date, zone_view):
     production_fig = create_production_chart(df_filtered, combine_zones)
     exchange_fig = create_exchange_chart(df_filtered, combine_zones)
     price_fig = create_price_chart(df_filtered)
+    wind_fig = create_wind_chart(df_filtered, combine_zones)
+    solar_fig = create_solar_chart(df_filtered, combine_zones)
     weather_fig = create_weather_chart(df_filtered, combine_zones)
     co2_fig = create_co2_chart(df_filtered, combine_zones)
 
-    return overview_fig, production_fig, exchange_fig, price_fig, weather_fig, co2_fig
+    return overview_fig, production_fig, exchange_fig, price_fig, wind_fig, solar_fig, weather_fig, co2_fig
 
 
 # Run the app

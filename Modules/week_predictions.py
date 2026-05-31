@@ -691,8 +691,22 @@ def get_predictions(
                             temp_block = pd.DataFrame({"Time": [timestamp], resolved_base: [np.nan]})
                             new_row[col] = _value_from_lag(temp_history, temp_block, resolved_base, timestamp, lag_hours)
                         else:
-                            temp_block = pd.DataFrame({"Time": [timestamp], resolved_base: [np.nan]})
-                            new_row[col] = _value_from_lag(block_history, temp_block, resolved_base, timestamp, lag_hours)
+                            # When not using forecasted history, use true value for first hour,
+                            # then use recursive predictions for subsequent hours
+                            if target_rows:
+                                temp_history = block_history.copy()
+                                target_future = pd.DataFrame(target_rows)
+                                for req_col in temp_history.columns:
+                                    if req_col not in target_future.columns:
+                                        target_future[req_col] = np.nan
+                                target_future = target_future[temp_history.columns]
+                                temp_history = pd.concat([temp_history, target_future], ignore_index=True)
+                                temp_block = pd.DataFrame({"Time": [timestamp], resolved_base: [np.nan]})
+                                new_row[col] = _value_from_lag(temp_history, temp_block, resolved_base, timestamp, lag_hours)
+                            else:
+                                # First hour: use true historical data
+                                temp_block = pd.DataFrame({"Time": [timestamp], resolved_base: [np.nan]})
+                                new_row[col] = _value_from_lag(block_history, temp_block, resolved_base, timestamp, lag_hours)
                     else:
                         new_row[col] = _value_from_lag(block_history, block_df, resolved_base, timestamp, lag_hours)
                     continue

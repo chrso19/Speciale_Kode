@@ -31,18 +31,9 @@ FREQUENCY = "hourly"
 DK_ZONE = None
 
 MODEL_FILES = [
-#    "Baseline/Naive/DK1_predictions_naive.csv",
-#    "Baseline/MovingAverage/DK1_predictions_MA.csv",
-#    "Baseline/Seasonal/DK1_predictions_seasonal.csv"
-]
-
-
-
-MODEL_FILES = [
     "Deep learners/Simple RNN/RNN multivariate/DK1_RNN_multi_predictions.csv",
     "Deep learners/LSTM Autoencoder/DK1_LSTM_AE_predictions.csv"
 ]
-
 
 MODEL_FILES = [
     "Shallow learners/ARIMA-ARIMAX/DK1_ARIMA_predictions_2.csv",
@@ -54,15 +45,31 @@ MODEL_FILES = [
     "Shallow learners/SVR/DK1_SVR_predictions.csv",
 ]
 
-MODELS = [
-    #"ARIMA",
-    #"ARIMAX"
-    "Lasso",
-    "SVR"
+MODEL_FILES = [
+    "Shallow learners/LightGBM/DK1_LightGBM_multi_predictions_1.csv",
+    "Shallow learners/Final_eval/Shap/DK1_LightGBM_predictions.csv",
 ]
 
-START_TIME = "2025-07-01 00:00:00"
-END_TIME = "2025-07-30 23:00:00"
+MODEL_FILES = [
+    #"Deep learners/Final_eval/DK1_LSTM_predictions.csv",
+    "Deep learners/LSTM/DK1_LSTM_predictions.csv",
+    "Deep learners/Final_eval/DK1_LSTM_AE_predictions.csv"
+]
+
+MODEL_FILES = [
+    "Deep learners/Final_eval/DK1_RNN_predictions.csv",
+    "Deep learners/Final_eval/DK1_GRU_predictions.csv"
+]
+
+MODELS = [
+    "RNN",
+    "GRU",
+    #"LSTM",
+    #"LSTM AE"
+]
+
+START_TIME = "2025-01-01 00:00:00"
+END_TIME = "2025-01-30 23:00:00"
 
 
 def get_model_configs():
