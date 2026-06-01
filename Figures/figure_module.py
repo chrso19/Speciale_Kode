@@ -118,7 +118,7 @@ def generate_metrics_graph(file: str, model: str,
                            folder: str):
     
     filepath = os.path.join(folder, file)
-    df_model = pd.read_csv(filepath, decimal = ",")
+    df_model = pd.read_csv(filepath, decimal = ",", sep = ";")
 
     df_actuals = df_model["DKPrice"].values.tolist()
     df_preds = df_model["Prediction"].values.tolist()
@@ -349,7 +349,7 @@ def generate_smape_graph(price_zone: str, xpoints: List[str],
 
         filename_arima_DK1 = "DK1_ARIMA_predictions.csv"
         filepath_arima_DK1 = os.path.join(folder, filename_arima_DK1)
-        df_arima = pd.read_csv(filepath_arima_DK1, decimal = ",")
+        df_arima = pd.read_csv(filepath_arima_DK1, decimal = ",", sep = ";")
 
         filename_arimax_DK1 = "DK1_ARIMAX_predictions.csv"
         filepath_arimax_DK1 = os.path.join(folder, filename_arimax_DK1)
@@ -378,7 +378,7 @@ def generate_smape_graph(price_zone: str, xpoints: List[str],
 
         filename_arima_DK2 = "DK2_ARIMA_predictions.csv"
         filepath_arima_DK2 = os.path.join(folder, filename_arima_DK2)
-        df_arima = pd.read_csv(filepath_arima_DK2, decimal = ",")
+        df_arima = pd.read_csv(filepath_arima_DK2, decimal = ",", sep = ";")
 
         filename_arimax_DK2 = "DK2_ARIMAX_predictions.csv"
         filepath_arimax_DK2 = os.path.join(folder, filename_arimax_DK2)
@@ -474,7 +474,7 @@ def generate_rmse_graph(price_zone: str, xpoints: List[str],
 
         filename_arima_DK1 = "DK1_ARIMA_predictions.csv"
         filepath_arima_DK1 = os.path.join(folder, filename_arima_DK1)
-        df_arima = pd.read_csv(filepath_arima_DK1, decimal = ",")
+        df_arima = pd.read_csv(filepath_arima_DK1, decimal = ",", sep = ";")
 
         filename_arimax_DK1 = "DK1_ARIMAX_predictions.csv"
         filepath_arimax_DK1 = os.path.join(folder, filename_arimax_DK1)
@@ -503,7 +503,7 @@ def generate_rmse_graph(price_zone: str, xpoints: List[str],
 
         filename_arima_DK2 = "DK2_ARIMA_predictions.csv"
         filepath_arima_DK2 = os.path.join(folder, filename_arima_DK2)
-        df_arima = pd.read_csv(filepath_arima_DK2, decimal = ",")
+        df_arima = pd.read_csv(filepath_arima_DK2, decimal = ",", sep = ";")
 
         filename_arimax_DK2 = "DK2_ARIMAX_predictions.csv"
         filepath_arimax_DK2 = os.path.join(folder, filename_arimax_DK2)
@@ -599,7 +599,7 @@ def generate_mae_graph(price_zone: str, xpoints: List[str],
 
         filename_arima_DK1 = "DK1_ARIMA_predictions.csv"
         filepath_arima_DK1 = os.path.join(folder, filename_arima_DK1)
-        df_arima = pd.read_csv(filepath_arima_DK1, decimal = ",")
+        df_arima = pd.read_csv(filepath_arima_DK1, decimal = ",", sep = ";")
 
         filename_arimax_DK1 = "DK1_ARIMAX_predictions.csv"
         filepath_arimax_DK1 = os.path.join(folder, filename_arimax_DK1)
@@ -628,7 +628,7 @@ def generate_mae_graph(price_zone: str, xpoints: List[str],
 
         filename_arima_DK2 = "DK2_ARIMA_predictions.csv"
         filepath_arima_DK2 = os.path.join(folder, filename_arima_DK2)
-        df_arima = pd.read_csv(filepath_arima_DK2, decimal = ",")
+        df_arima = pd.read_csv(filepath_arima_DK2, decimal = ",", sep = ";")
 
         filename_arimax_DK2 = "DK2_ARIMAX_predictions.csv"
         filepath_arimax_DK2 = os.path.join(folder, filename_arimax_DK2)
@@ -727,7 +727,7 @@ def generate_quarterly_smape_graph(price_zone: str, xpoints: List[str],
     df_XGB = pd.read_csv(os.path.join(folder, filename_XGB), decimal=",")
     df_lightgbm = pd.read_csv(os.path.join(folder, filename_lightgbm), decimal=",")
     df_RF = pd.read_csv(os.path.join(folder, filename_RF), decimal=",")
-    df_arima = pd.read_csv(os.path.join(folder, filename_arima), decimal=",")
+    df_arima = pd.read_csv(os.path.join(folder, filename_arima), decimal=",", sep = ";")
     df_arimax = pd.read_csv(os.path.join(folder, filename_arimax), decimal=",")
 
     actuals = df_lasso["DKPrice"].values.tolist()
@@ -1001,8 +1001,12 @@ def shallow_7_day_smape(lasso_list, svr_list, xgb_list,
 
 def make_shallow_7_day_metrics(folder, file, price_zone):
     filepath = os.path.join(folder, file)
-
-    df = pd.read_csv(filepath, decimal = ",")
+    if file == "DK1_ARIMA_predictions.csv":
+        df = pd.read_csv(filepath, decimal = ",", sep = ";")
+    elif file == "DK2_ARIMA_predictions.csv":
+        df = pd.read_csv(filepath, decimal = ",", sep = ";")
+    else:
+        df = pd.read_csv(filepath, decimal = ",")
 
     actuals = df["DKPrice"].values.tolist()
     preds = df["Prediction"].values.tolist()
@@ -1092,7 +1096,7 @@ def generate_rmse_graph2(price_zone: str, xpoints: List[str],
 
         filename_arima_DK1 = "DK1_ARIMA_predictions.csv"
         filepath_arima_DK1 = os.path.join(folder, filename_arima_DK1)
-        df_arima = pd.read_csv(filepath_arima_DK1, decimal = ",")
+        df_arima = pd.read_csv(filepath_arima_DK1, decimal = ",", sep = ";")
 
     elif price_zone == "DK2":
         filename_lasso_DK2 = "DK2_Lasso_predictions.csv"
@@ -1117,7 +1121,7 @@ def generate_rmse_graph2(price_zone: str, xpoints: List[str],
 
         filename_arima_DK2 = "DK2_ARIMA_predictions.csv"
         filepath_arima_DK2 = os.path.join(folder, filename_arima_DK2)
-        df_arima = pd.read_csv(filepath_arima_DK2, decimal = ",") 
+        df_arima = pd.read_csv(filepath_arima_DK2, decimal = ",", sep = ";") 
 
     else:
         print("The correct price zone was not given.")
@@ -1209,7 +1213,7 @@ def generate_mae_graph2(price_zone: str, xpoints: List[str],
 
         filename_arima_DK1 = "DK1_ARIMA_predictions.csv"
         filepath_arima_DK1 = os.path.join(folder, filename_arima_DK1)
-        df_arima = pd.read_csv(filepath_arima_DK1, decimal = ",")
+        df_arima = pd.read_csv(filepath_arima_DK1, decimal = ",", sep = ";")
 
 
     elif price_zone == "DK2":
@@ -1235,7 +1239,7 @@ def generate_mae_graph2(price_zone: str, xpoints: List[str],
 
         filename_arima_DK2 = "DK2_ARIMA_predictions.csv"
         filepath_arima_DK2 = os.path.join(folder, filename_arima_DK2)
-        df_arima = pd.read_csv(filepath_arima_DK2, decimal = ",")
+        df_arima = pd.read_csv(filepath_arima_DK2, decimal = ",", sep = ";")
 
 
     else:
