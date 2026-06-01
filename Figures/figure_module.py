@@ -1066,3 +1066,239 @@ def shallow_7_day_mae(lasso_list, svr_list, xgb_list,
     plt.legend()
     plt.savefig(f"shallow_7day_mae_{price_zone}")
     plt.show()
+
+def generate_rmse_graph2(price_zone: str, xpoints: List[str],
+                         folder: str):
+    if price_zone == "DK1":
+        filename_lasso_DK1 = "DK1_Lasso_predictions.csv"
+        filepath_lasso_DK1 = os.path.join(folder, filename_lasso_DK1)
+        df_lasso = pd.read_csv(filepath_lasso_DK1, decimal = ",")
+
+        filename_SVR_DK1 = "DK1_SVR_predictions.csv"
+        filepath_SVR_DK1 = os.path.join(folder, filename_SVR_DK1)
+        df_SVR = pd.read_csv(filepath_SVR_DK1, decimal = ",")
+
+        filename_XGB_DK1 = "DK1_XGBoost_predictions.csv"
+        filepath_XGB_DK1 = os.path.join(folder, filename_XGB_DK1)
+        df_XGB = pd.read_csv(filepath_XGB_DK1, decimal = ",")
+
+        filename_lightgbm_DK1 = "DK1_LightGBM_predictions.csv"
+        filepath_lightgbm_DK1 = os.path.join(folder, filename_lightgbm_DK1)
+        df_lightgbm = pd.read_csv(filepath_lightgbm_DK1, decimal = ",")
+
+        filename_RF_DK1 = "DK1_RF_predictions.csv"
+        filepath_RF_DK1 = os.path.join(folder, filename_RF_DK1)
+        df_RF = pd.read_csv(filepath_RF_DK1, decimal = ",")
+
+        filename_arima_DK1 = "DK1_ARIMA_predictions.csv"
+        filepath_arima_DK1 = os.path.join(folder, filename_arima_DK1)
+        df_arima = pd.read_csv(filepath_arima_DK1, decimal = ",")
+
+    elif price_zone == "DK2":
+        filename_lasso_DK2 = "DK2_Lasso_predictions.csv"
+        filepath_lasso_DK2 = os.path.join(folder, filename_lasso_DK2)
+        df_lasso = pd.read_csv(filepath_lasso_DK2, decimal = ",")
+
+        filename_SVR_DK2 = "DK2_SVR_predictions.csv"
+        filepath_SVR_DK2 = os.path.join(folder, filename_SVR_DK2)
+        df_SVR = pd.read_csv(filepath_SVR_DK2, decimal = ",")
+
+        filename_XGB_DK2 = "DK2_XGBoost_predictions.csv"
+        filepath_XGB_DK2 = os.path.join(folder, filename_XGB_DK2)
+        df_XGB = pd.read_csv(filepath_XGB_DK2, decimal = ",")
+
+        filename_lightgbm_DK2 = "DK2_LightGBM_predictions.csv"
+        filepath_lightgbm_DK2 = os.path.join(folder, filename_lightgbm_DK2)
+        df_lightgbm = pd.read_csv(filepath_lightgbm_DK2, decimal = ",")
+
+        filename_RF_DK2 = "DK2_RF_predictions.csv"
+        filepath_RF_DK2 = os.path.join(folder, filename_RF_DK2)
+        df_RF = pd.read_csv(filepath_RF_DK2, decimal = ",")
+
+        filename_arima_DK2 = "DK2_ARIMA_predictions.csv"
+        filepath_arima_DK2 = os.path.join(folder, filename_arima_DK2)
+        df_arima = pd.read_csv(filepath_arima_DK2, decimal = ",") 
+
+    else:
+        print("The correct price zone was not given.")
+        print("Please try again.")
+        sys.exit()
+    
+    actuals = df_lasso["DKPrice"].values.tolist()
+
+    lasso_preds = df_lasso["Prediction"].values.tolist()
+    svr_preds = df_SVR["Prediction"].values.tolist()
+    xgb_preds = df_XGB["Prediction"].values.tolist()
+    lightgbm_preds = df_lightgbm["Prediction"].values.tolist()
+    rf_preds = df_RF["Prediction"].values.tolist()
+    arima_preds = df_arima["Prediction"].values.tolist()
+
+
+    lasso_rmse = []
+    svr_rmse = []
+    xgb_rmse = []
+    lightgbm_rmse = []
+    rf_rmse = []
+    arima_rmse = []
+
+    
+    for i in range(0, len(actuals), 24):
+        actuals_segment = actuals[i:i+24]
+        lasso_segment = lasso_preds[i:i+24]
+        svr_segment = svr_preds[i:i+24]
+        xgb_segment = xgb_preds[i:i+24]
+        lightgbm_segment = lightgbm_preds[i:i+24]
+        rf_segment = rf_preds[i:i+24]
+        arima_segment = arima_preds[i:i+24]
+
+        lasso_val = np.sqrt(mean_squared_error(actuals_segment, lasso_segment))
+        svr_val = np.sqrt(mean_squared_error(actuals_segment, svr_segment))
+        xgb_val = np.sqrt(mean_squared_error(actuals_segment, xgb_segment))
+        lightgbm_val = np.sqrt(mean_squared_error(actuals_segment, lightgbm_segment))
+        rf_val = np.sqrt(mean_squared_error(actuals_segment, rf_segment))
+        arima_val = np.sqrt(mean_squared_error(actuals_segment, arima_segment))
+
+        lasso_rmse.append(lasso_val)
+        svr_rmse.append(svr_val)
+        xgb_rmse.append(xgb_val)
+        lightgbm_rmse.append(lightgbm_val)
+        rf_rmse.append(rf_val)
+        arima_rmse.append(arima_val)
+
+
+    plt.figure(figsize=(30, 5))
+    plt.plot(xpoints, lasso_rmse, label = "Lasso Regression")
+    plt.plot(xpoints, svr_rmse, label = "Support Vector Regression")
+    plt.plot(xpoints, xgb_rmse, label = "XGBoost")
+    plt.plot(xpoints, lightgbm_rmse, label = "LightGBM")
+    plt.plot(xpoints, rf_rmse, label = "Random Forest")
+    plt.plot(xpoints, arima_rmse, label = "ARIMA")
+
+    plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b'))
+    plt.xlabel('Prediction Day')
+    plt.ylabel('RMSE (DKK/MWh)')
+    plt.title(f'Daily RMSE (DKK/MWh) for 2025 for Shallow Learners for {price_zone}')
+    plt.legend(loc = 'center right')
+    plt.tight_layout()
+    plt.savefig(f"RMSE_graph_shallow_{price_zone}")
+    plt.show()
+
+def generate_mae_graph2(price_zone: str, xpoints: List[str],
+                         folder: str):
+    if price_zone == "DK1":
+        filename_lasso_DK1 = "DK1_Lasso_predictions.csv"
+        filepath_lasso_DK1 = os.path.join(folder, filename_lasso_DK1)
+        df_lasso = pd.read_csv(filepath_lasso_DK1, decimal = ",")
+
+        filename_SVR_DK1 = "DK1_SVR_predictions.csv"
+        filepath_SVR_DK1 = os.path.join(folder, filename_SVR_DK1)
+        df_SVR = pd.read_csv(filepath_SVR_DK1, decimal = ",")
+
+        filename_XGB_DK1 = "DK1_XGBoost_predictions.csv"
+        filepath_XGB_DK1 = os.path.join(folder, filename_XGB_DK1)
+        df_XGB = pd.read_csv(filepath_XGB_DK1, decimal = ",")
+
+        filename_lightgbm_DK1 = "DK1_LightGBM_predictions.csv"
+        filepath_lightgbm_DK1 = os.path.join(folder, filename_lightgbm_DK1)
+        df_lightgbm = pd.read_csv(filepath_lightgbm_DK1, decimal = ",")
+
+        filename_RF_DK1 = "DK1_RF_predictions.csv"
+        filepath_RF_DK1 = os.path.join(folder, filename_RF_DK1)
+        df_RF = pd.read_csv(filepath_RF_DK1, decimal = ",")
+
+        filename_arima_DK1 = "DK1_ARIMA_predictions.csv"
+        filepath_arima_DK1 = os.path.join(folder, filename_arima_DK1)
+        df_arima = pd.read_csv(filepath_arima_DK1, decimal = ",")
+
+
+    elif price_zone == "DK2":
+        filename_lasso_DK2 = "DK2_Lasso_predictions.csv"
+        filepath_lasso_DK2 = os.path.join(folder, filename_lasso_DK2)
+        df_lasso = pd.read_csv(filepath_lasso_DK2, decimal = ",")
+
+        filename_SVR_DK2 = "DK2_SVR_predictions.csv"
+        filepath_SVR_DK2 = os.path.join(folder, filename_SVR_DK2)
+        df_SVR = pd.read_csv(filepath_SVR_DK2, decimal = ",")
+
+        filename_XGB_DK2 = "DK2_XGBoost_predictions.csv"
+        filepath_XGB_DK2 = os.path.join(folder, filename_XGB_DK2)
+        df_XGB = pd.read_csv(filepath_XGB_DK2, decimal = ",")
+
+        filename_lightgbm_DK2 = "DK2_LightGBM_predictions.csv"
+        filepath_lightgbm_DK2 = os.path.join(folder, filename_lightgbm_DK2)
+        df_lightgbm = pd.read_csv(filepath_lightgbm_DK2, decimal = ",")
+
+        filename_RF_DK2 = "DK2_RF_predictions.csv"
+        filepath_RF_DK2 = os.path.join(folder, filename_RF_DK2)
+        df_RF = pd.read_csv(filepath_RF_DK2, decimal = ",")
+
+        filename_arima_DK2 = "DK2_ARIMA_predictions.csv"
+        filepath_arima_DK2 = os.path.join(folder, filename_arima_DK2)
+        df_arima = pd.read_csv(filepath_arima_DK2, decimal = ",")
+
+
+    else:
+        print("The correct price zone was not given.")
+        print("Please try again.")
+        sys.exit()
+    
+    actuals = df_lasso["DKPrice"].values.tolist()
+
+    lasso_preds = df_lasso["Prediction"].values.tolist()
+    svr_preds = df_SVR["Prediction"].values.tolist()
+    xgb_preds = df_XGB["Prediction"].values.tolist()
+    lightgbm_preds = df_lightgbm["Prediction"].values.tolist()
+    rf_preds = df_RF["Prediction"].values.tolist()
+    arima_preds = df_arima["Prediction"].values.tolist()
+
+
+    lasso_mae = []
+    svr_mae = []
+    xgb_mae = []
+    lightgbm_mae = []
+    rf_mae = []
+    arima_mae = []
+    arimax_mae = []
+    
+    for i in range(0, len(actuals), 24):
+        actuals_segment = actuals[i:i+24]
+        lasso_segment = lasso_preds[i:i+24]
+        svr_segment = svr_preds[i:i+24]
+        xgb_segment = xgb_preds[i:i+24]
+        lightgbm_segment = lightgbm_preds[i:i+24]
+        rf_segment = rf_preds[i:i+24]
+        arima_segment = arima_preds[i:i+24]
+
+        lasso_val = mean_absolute_error(actuals_segment, lasso_segment)
+        svr_val = mean_absolute_error(actuals_segment, svr_segment)
+        xgb_val = mean_absolute_error(actuals_segment, xgb_segment)
+        lightgbm_val = mean_absolute_error(actuals_segment, lightgbm_segment)
+        rf_val = mean_absolute_error(actuals_segment, rf_segment)
+        arima_val = mean_absolute_error(actuals_segment, arima_segment)
+
+        lasso_mae.append(lasso_val)
+        svr_mae.append(svr_val)
+        xgb_mae.append(xgb_val)
+        lightgbm_mae.append(lightgbm_val)
+        rf_mae.append(rf_val)
+        arima_mae.append(arima_val)
+
+
+    plt.figure(figsize=(30, 5))
+    plt.plot(xpoints, lasso_mae, label = "Lasso Regression")
+    plt.plot(xpoints, svr_mae, label = "Support Vector Regression")
+    plt.plot(xpoints, xgb_mae, label = "XGBoost")
+    plt.plot(xpoints, lightgbm_mae, label = "LightGBM")
+    plt.plot(xpoints, rf_mae, label = "Random Forest")
+    plt.plot(xpoints, arima_mae, label = "ARIMA")
+
+    plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b'))
+    plt.xlabel('Prediction Day')
+    plt.ylabel('MAE (DKK/MWh)')
+    plt.title(f'Daily MAE (DKK/MWh) for 2025 for Shallow Learners for {price_zone}')
+    plt.legend(loc = 'center right')
+    plt.tight_layout()
+    plt.savefig(f"MAE_graph_shallow_{price_zone}")
+    plt.show()
