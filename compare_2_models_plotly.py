@@ -74,8 +74,8 @@ MODELS = [
 ]
 
 
-START_TIME = "2025-07-01 00:00:00"
-END_TIME = "2025-07-30 23:00:00"
+START_TIME = "2025-01-01 00:00:00"
+END_TIME = "2025-01-30 23:00:00"
 
 
 def get_model_configs():
