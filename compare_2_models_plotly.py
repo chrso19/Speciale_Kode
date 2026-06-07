@@ -40,42 +40,44 @@ MODEL_FILES = [
     "Shallow learners/New_Eval/DK1_ARIMAX_predictions.csv",
 ]
 
-# MODEL_FILES = [
-#     "Shallow learners/New_Eval/DK1_Lasso_predictions.csv",
-#     "Shallow learners/New_Eval/DK1_SVR_predictions.csv",
-# ]
-
-# MODEL_FILES = [
-#     "Shallow learners/LightGBM/DK1_LightGBM_multi_predictions_1.csv",
-#     "Shallow learners/Final_eval/Shap/DK1_LightGBM_predictions.csv",
-# ]
-
-# MODEL_FILES = [
-#     #"Deep learners/Final_eval/DK1_LSTM_predictions.csv",
-#     "Deep learners/LSTM/DK1_LSTM_predictions.csv",
-#     "Deep learners/Final_eval/DK1_LSTM_AE_predictions.csv"
-# ]
-
-# MODEL_FILES = [
-#     "Deep learners/Final_eval/DK1_RNN_predictions.csv",
-#     "Deep learners/Final_eval/DK1_GRU_predictions.csv"
-# ]
-
-# MODELS = [
-#     "RNN",
-#     "GRU",
-#     #"LSTM",
-#     #"LSTM AE"
-# ]
-
-MODELS = [
-    "ARIMA",
-    "ARIMAX"
+MODEL_FILES = [
+    "Shallow learners/New_Eval/DK1_Lasso_predictions.csv",
+    "Shallow learners/New_Eval/DK1_SVR_predictions.csv",
 ]
 
+MODEL_FILES = [
+    "Shallow learners/LightGBM/DK1_LightGBM_multi_predictions_1.csv",
+    "Shallow learners/Final_eval/Shap/DK1_LightGBM_predictions.csv",
+]
 
-START_TIME = "2025-01-01 00:00:00"
-END_TIME = "2025-01-30 23:00:00"
+MODEL_FILES = [
+    #"Deep learners/Final_eval/DK1_LSTM_predictions.csv",
+    "Deep learners/LSTM/DK1_LSTM_predictions.csv",
+    "Deep learners/Final_eval/DK1_LSTM_AE_predictions.csv"
+]
+
+MODEL_FILES = [
+    "Deep learners/Final_eval/DK1_RNN_predictions.csv",
+    "Deep learners/Final_eval/DK1_GRU_predictions.csv"
+]
+
+MODELS = [
+    "RNN",
+    "GRU",
+    #"LSTM",
+    #"LSTM AE"
+]
+
+MODEL_FILES = [
+    "Phase 2/LSTM/Predictions/DK1_LSTM_true_MSE_long_2025_predictions.csv",
+]
+
+MODELS = [
+    "LSTM",
+]
+
+START_TIME = "2025-06-01 00:00:00"
+END_TIME = "2025-08-30 23:00:00"
 
 
 def get_model_configs():

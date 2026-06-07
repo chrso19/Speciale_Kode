@@ -155,7 +155,7 @@ def _build_feature_cache_key(
     feature_columns: list[str],
     rf_enabled: bool,
     use_precomputed_feature_values: bool = False,
-    use_forecasted_history: bool = True,
+    use_true_explanatory_values: bool = False,
 ) -> tuple:
     """Build a stable cache key for exogenous feature block forecasts."""
     return (
@@ -169,7 +169,7 @@ def _build_feature_cache_key(
         tuple(feature_columns),
         bool(rf_enabled),
         bool(use_precomputed_feature_values),
-        bool(use_forecasted_history),
+        bool(use_true_explanatory_values),
     )
 
 
@@ -527,7 +527,8 @@ def get_predictions(
     rf_models=None,
     use_precomputed_feature_values: bool = False,
     precomputed_feature_predictions: pd.DataFrame | None = None,
-    use_forecasted_history: bool = True,
+    use_true_explanatory_values: bool = False,
+    use_predicted_target_history: bool = True,
 ):
     """
     Predict from val_start to val_end in week-sized blocks while constructing
@@ -572,9 +573,14 @@ def get_predictions(
     precomputed_feature_predictions : pd.DataFrame | None, default None
         Optional forecast feature table keyed by Time. When provided, forecastable features
         are pulled from this table for each validation block instead of being recomputed.
-    use_forecasted_history : bool, default True
-        If True, use recursively forecasted values as history inside the validation horizon
-        (current behavior). If False, use true historical values from the dataset.
+    use_true_explanatory_values : bool, default False
+        If True, use the true value from the dataset for explanatory features at each
+        prediction hour whenever that value is available.
+    use_predicted_target_history : bool, default True
+        Controls target-lag features such as DKPrice_lag1 independently of the explanatory
+        feature mode. If True, the first hour in a block uses the true previous target value
+        and subsequent hours use recursively predicted target values. If False, all target-lag
+        values inside the block are taken from the true dataset timeline.
 
     """
 
@@ -604,7 +610,7 @@ def get_predictions(
         feature_columns=feature_columns,
         rf_enabled=rf_enabled,
         use_precomputed_feature_values=use_precomputed_feature_values,
-        use_forecasted_history=use_forecasted_history,
+        use_true_explanatory_values=use_true_explanatory_values,
     )
     cached_blocks = _FORECAST_FEATURE_BLOCK_CACHE.get(cache_key)
     if cached_blocks is None:
@@ -645,6 +651,12 @@ def get_predictions(
         else:
             block_df = pd.DataFrame({"Time": block_true["Time"]})
 
+            # Use true explanatory values for this block whenever requested.
+            if use_true_explanatory_values:
+                for col in feature_columns:
+                    if col in block_true.columns:
+                        block_df[col] = block_true[col].to_numpy()
+
             # Start with any forecastable features that are already available in the dataset.
             for col in present_forecast_features:
                 if col in block_true.columns:
@@ -672,7 +684,7 @@ def get_predictions(
             for feature_name in non_rf_features:
                 if use_precomputed_feature_values and feature_name in block_df.columns and block_df[feature_name].notna().all():
                     continue
-                if (not use_forecasted_history) and feature_name in block_df.columns and block_df[feature_name].notna().all():
+                if use_true_explanatory_values and feature_name in block_df.columns and block_df[feature_name].notna().all():
                     continue
 
                 method = FORECAST_METHODS[dk_zone][feature_name]
@@ -699,7 +711,7 @@ def get_predictions(
             for feature_name in rf_features:
                 if use_precomputed_feature_values and feature_name in block_df.columns and block_df[feature_name].notna().all():
                     continue
-                if (not use_forecasted_history) and feature_name in block_df.columns and block_df[feature_name].notna().all():
+                if use_true_explanatory_values and feature_name in block_df.columns and block_df[feature_name].notna().all():
                     continue
 
                 if rf_models is None or not rf_models:
@@ -724,33 +736,49 @@ def get_predictions(
         if __name__ == "__main__":
             forecast_rows = []
         target_rows = []
+        block_first_timestamp = block_df["Time"].iloc[0]
         for timestamp in block_df["Time"]:
             prepared_row = block_df.loc[block_df["Time"] == timestamp].iloc[0].to_dict()
+            true_row = block_true.loc[block_true["Time"] == timestamp].iloc[0].to_dict()
             new_row = {"Time": timestamp}
 
             for col in feature_columns:
-                if col in prepared_row:
+                base_feature, lag_hours = _parse_lag_feature(col)
+                resolved_base = _resolve_base_feature(base_feature, target_col) if lag_hours is not None else None
+                is_target_lag = bool(lag_hours is not None and resolved_base == target_col)
+
+                if (
+                    use_true_explanatory_values
+                    and (col in true_row)
+                    and pd.notna(true_row[col])
+                    and (not (is_target_lag and use_predicted_target_history))
+                ):
+                    new_row[col] = true_row[col]
+                    continue
+
+                if col in prepared_row and not (is_target_lag and use_predicted_target_history):
                     new_row[col] = prepared_row[col]
                     continue
 
-                base_feature, lag_hours = _parse_lag_feature(col)
                 if lag_hours is not None:
-                    resolved_base = _resolve_base_feature(base_feature, target_col)
-                    if resolved_base == target_col:
-                        if use_forecasted_history:
-                            temp_history = block_history.copy()
-                            if target_rows:
-                                target_future = pd.DataFrame(target_rows)
-                                for req_col in temp_history.columns:
-                                    if req_col not in target_future.columns:
-                                        target_future[req_col] = np.nan
-                                target_future = target_future[temp_history.columns]
-                                temp_history = pd.concat([temp_history, target_future], ignore_index=True)
-                            temp_block = pd.DataFrame({"Time": [timestamp], resolved_base: [np.nan]})
-                            new_row[col] = _value_from_lag(temp_history, temp_block, resolved_base, timestamp, lag_hours)
-                        else:
-                            temp_block = pd.DataFrame({"Time": [timestamp], resolved_base: [np.nan]})
-                            new_row[col] = _value_from_lag(block_history, temp_block, resolved_base, timestamp, lag_hours)
+                    if resolved_base == target_col and use_predicted_target_history:
+                        # Use true target history up to the first block hour, then recurse on
+                        # predicted target values inside the block.
+                        temp_history = block_history.copy()
+                        if target_rows:
+                            target_future = pd.DataFrame(target_rows)
+                            for req_col in temp_history.columns:
+                                if req_col not in target_future.columns:
+                                    target_future[req_col] = np.nan
+                            target_future = target_future[temp_history.columns]
+                            temp_history = pd.concat([temp_history, target_future], ignore_index=True)
+                        temp_block = pd.DataFrame({"Time": [timestamp], resolved_base: [np.nan]})
+                        new_row[col] = _value_from_lag(temp_history, temp_block, resolved_base, timestamp, lag_hours)
+                    elif resolved_base == target_col or use_true_explanatory_values:
+                        # Build lag values from the true observed dataset timeline.
+                        true_history = data.loc[data["Time"] < timestamp].copy()
+                        temp_block = pd.DataFrame({"Time": [timestamp], resolved_base: [np.nan]})
+                        new_row[col] = _value_from_lag(true_history, temp_block, resolved_base, timestamp, lag_hours)
                     else:
                         new_row[col] = _value_from_lag(block_history, block_df, resolved_base, timestamp, lag_hours)
                     continue
@@ -801,7 +829,7 @@ def get_predictions(
         block_out = pd.DataFrame(target_rows)
         block_predictions[block_no] = block_out[["Time", "Prediction"]].copy()
 
-        if use_forecasted_history:
+        if use_predicted_target_history:
             history_append = block_out.copy()
             for col in data.columns:
                 if col not in history_append.columns:
@@ -867,6 +895,6 @@ if __name__ == "__main__":
         rf_models = rf_models,
         use_precomputed_feature_values = use_precomputed_feature_values,
         precomputed_feature_predictions = predictions,
-        use_forecasted_history = True,
+        use_predicted_target_history = True,
     )
 

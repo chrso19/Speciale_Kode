@@ -101,9 +101,11 @@ def run_cross_validation(
     print_fold_results: bool = True,
     plot: bool = True,
     rf_models=None,
+    validation_metric: str = "SMAPE",
+    use_true_explanatory_values: bool = False,
+    use_predicted_target_history: bool = True,
     use_precomputed_feature_values: bool = False,
     precomputed_feature_predictions: pd.DataFrame | None = None,
-    use_forecasted_history: bool = True,
     dataset_validation: pd.DataFrame | None = None,
     include_remaining_2024: bool = True,
     dataset_context: pd.DataFrame | None = None,
@@ -120,7 +122,23 @@ def run_cross_validation(
     - include_remaining_2024:
       True  -> training uses TRAIN_WINDOW history + remaining 2024 rows not in validation windows.
       False -> training uses only TRAIN_WINDOW history ending at val_start.
+
+        validation_metric:
+            Metric used to decide the best epoch/model. Supported values: "MSE", "RMSE", "MAE", "SMAPE".
+            Lower is better for all supported metrics.
+
+    Flag behavior:
+    - use_predicted_target_history controls target-lag recursion.
+      True: first block hour uses true previous target, then recursive predicted target history.
+      False: target lags are always read from true timeline.
     """
+
+    validation_metric = str(validation_metric).upper().strip()
+    supported_validation_metrics = {"MSE", "RMSE", "MAE", "SMAPE"}
+    if validation_metric not in supported_validation_metrics:
+        raise ValueError(
+            f"validation_metric must be one of {sorted(supported_validation_metrics)}, got {validation_metric!r}."
+        )
 
     train_data_source = dataset_train.copy().sort_values("Time").reset_index(drop=True)
 
@@ -304,12 +322,14 @@ def run_cross_validation(
             fitted_scaler=scaler,
             dk_zone=dk_zone,
             rf_models=rf_models,
+            use_true_explanatory_values=use_true_explanatory_values,
+            use_predicted_target_history=use_predicted_target_history,
             use_precomputed_feature_values=use_precomputed_feature_values,
             precomputed_feature_predictions=precomputed_feature_predictions,
-            use_forecasted_history=use_forecasted_history,
         )
 
         fold_week_rmse = []
+        fold_week_mse = []
         fold_week_mae = []
         fold_week_smape = []
 
@@ -334,6 +354,10 @@ def run_cross_validation(
                     week_eval["Prediction"].values,
                 )
             )
+            week_mse = mean_squared_error(
+                week_eval[target_col].values,
+                week_eval["Prediction"].values,
+            )
             week_mae = mean_absolute_error(
                 week_eval[target_col].values,
                 week_eval["Prediction"].values,
@@ -344,6 +368,7 @@ def run_cross_validation(
             )
 
             fold_week_rmse.append(week_rmse)
+            fold_week_mse.append(week_mse)
             fold_week_mae.append(week_mae)
             fold_week_smape.append(week_smape)
 
@@ -353,12 +378,21 @@ def run_cross_validation(
                     "week": week_no,
                     "week_start": week_eval["Time"].min(),
                     "week_end": week_eval["Time"].max(),
+                    "weekly_mse": week_mse,
                     "weekly_rmse": week_rmse,
                     "weekly_mae": week_mae,
                     "weekly_smape": week_smape,
                 }
             )
 
+            daily_mse_df = (
+                week_eval.groupby("Date")
+                .apply(
+                    lambda g: mean_squared_error(g[target_col].values, g["Prediction"].values),
+                    include_groups=False,
+                )
+                .reset_index(name="daily_mse")
+            )
             daily_rmse_df = (
                 week_eval.groupby("Date")
                 .apply(
@@ -386,6 +420,8 @@ def run_cross_validation(
                 .reset_index(name="daily_smape")
             )
 
+            daily_mse_df["fold"] = fold_no
+            daily_mse_df["week"] = week_no
             daily_rmse_df["fold"] = fold_no
             daily_rmse_df["week"] = week_no
             daily_mae_df["fold"] = fold_no
@@ -394,7 +430,8 @@ def run_cross_validation(
             daily_smape_df["week"] = week_no
 
             daily_merged = (
-                daily_rmse_df
+                daily_mse_df
+                .merge(daily_rmse_df, on=["Date", "fold", "week"])
                 .merge(daily_mae_df, on=["Date", "fold", "week"])
                 .merge(daily_smape_df, on=["Date", "fold", "week"])
             )
@@ -404,6 +441,7 @@ def run_cross_validation(
         if not fold_week_smape:
             continue
 
+        fold_avg_mse = np.mean(fold_week_mse)
         fold_avg_rmse = np.mean(fold_week_rmse)
         fold_avg_mae = np.mean(fold_week_mae)
         fold_avg_smape = np.mean(fold_week_smape)
@@ -415,6 +453,7 @@ def run_cross_validation(
                 "train_end": train_end,
                 "val_start": fold["val_start"],
                 "val_end": fold["val_end"],
+                "fold_avg_mse": fold_avg_mse,
                 "fold_avg_rmse": fold_avg_rmse,
                 "fold_avg_mae": fold_avg_mae,
                 "fold_avg_smape": fold_avg_smape,
@@ -429,10 +468,14 @@ def run_cross_validation(
     daily_results_df = pd.concat(daily_results, ignore_index=True)
     predictions_df = pd.concat(all_predictions, ignore_index=True)
 
+    overall_avg_weekly_mse = weekly_results_df["weekly_mse"].mean()
     overall_avg_weekly_rmse = weekly_results_df["weekly_rmse"].mean()
     overall_avg_weekly_mae = weekly_results_df["weekly_mae"].mean()
     overall_avg_weekly_smape = weekly_results_df["weekly_smape"].mean()
 
+    overall_daily_mse_df = (
+        daily_results_df.groupby("Date", as_index=False)["daily_mse"].mean().sort_values("Date")
+    )
     overall_daily_rmse_df = (
         daily_results_df.groupby("Date", as_index=False)["daily_rmse"].mean().sort_values("Date")
     )
@@ -443,9 +486,18 @@ def run_cross_validation(
         daily_results_df.groupby("Date", as_index=False)["daily_smape"].mean().sort_values("Date")
     )
 
+    overall_avg_daily_mse = overall_daily_mse_df["daily_mse"].mean()
     overall_avg_daily_rmse = overall_daily_rmse_df["daily_rmse"].mean()
     overall_avg_daily_mae = overall_daily_mae_df["daily_mae"].mean()
     overall_avg_daily_smape = overall_daily_smape_df["daily_smape"].mean()
+
+    validation_metric_values = {
+        "MSE": overall_avg_weekly_mse,
+        "RMSE": overall_avg_weekly_rmse,
+        "MAE": overall_avg_weekly_mae,
+        "SMAPE": overall_avg_weekly_smape,
+    }
+    selected_validation_metric_value = validation_metric_values[validation_metric]
 
     daily_smape_by_day = daily_results_df[["fold", "week", "Date", "daily_smape"]].copy()
     daily_smape_by_day = daily_smape_by_day.sort_values(["fold", "week", "Date"])
@@ -465,9 +517,11 @@ def run_cross_validation(
         print("\nWeekly results:")
         print(weekly_results_df.to_string(index=False))
 
-    # print(f"\nAverage RMSE across all weeks in all folds: {overall_avg_weekly_rmse:.3f}")
-    # print(f"\nAverage MAE across all weeks in all folds: {overall_avg_weekly_mae:.3f}")
-    print(f"\nAverage SMAPE across all weeks in all folds: {overall_avg_weekly_smape:.3f}")
+    print(f"\nValidation metric: {validation_metric} = {selected_validation_metric_value:.3f}")
+    print(f"Average MSE across all weeks in all folds: {overall_avg_weekly_mse:.3f}")
+    print(f"Average RMSE across all weeks in all folds: {overall_avg_weekly_rmse:.3f}")
+    print(f"Average MAE across all weeks in all folds: {overall_avg_weekly_mae:.3f}")
+    print(f"Average SMAPE across all weeks in all folds: {overall_avg_weekly_smape:.3f}")
 
     if plot:
         plt.figure(figsize=(14, 6))
@@ -484,15 +538,20 @@ def run_cross_validation(
         "fold_results": fold_results_df,
         "weekly_results": weekly_results_df,
         "daily_results": daily_results_df,
+        "overall_daily_mse": overall_daily_mse_df,
         "overall_daily_rmse": overall_daily_rmse_df,
         "overall_daily_mae": overall_daily_mae_df,
         "overall_daily_smape": overall_daily_smape_df,
         "predictions": predictions_df,
+        "overall_avg_weekly_mse": overall_avg_weekly_mse,
         "overall_avg_weekly_rmse": overall_avg_weekly_rmse,
         "overall_avg_weekly_mae": overall_avg_weekly_mae,
         "overall_avg_weekly_smape": overall_avg_weekly_smape,
+        "overall_avg_daily_mse": overall_avg_daily_mse,
         "overall_avg_daily_rmse": overall_avg_daily_rmse,
         "overall_avg_daily_mae": overall_avg_daily_mae,
         "overall_avg_daily_smape": overall_avg_daily_smape,
+        "validation_metric": validation_metric,
+        "validation_metric_value": selected_validation_metric_value,
         **avg_smape_by_day,
     }
