@@ -6,6 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from typing import List
+import textwrap
+
 
 def smape(y_true, y_pred):
     y_true = np.asarray(y_true, dtype=float)
@@ -985,6 +987,7 @@ def shallow_7_day_smape(lasso_list, svr_list, xgb_list,
                         arimax_list, price_zone):
     xpoints = ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7"]
 
+
     plt.plot(xpoints, lasso_list, label = "Lasso Regression")
     plt.plot(xpoints, svr_list, label = "Support Vector Regression")
     plt.plot(xpoints, xgb_list, label = "XGBoost")
@@ -994,17 +997,17 @@ def shallow_7_day_smape(lasso_list, svr_list, xgb_list,
     plt.plot(xpoints, arimax_list, label = "ARIMAX")
     plt.xlabel('Prediction Day')
     plt.ylabel('SMAPE (%)')
-    plt.title(f'7-Day SMAPE (%) Development for Shallow Learners for {price_zone}')
+    plt.title(f'7-Day SMAPE (%) Development for Shallow Learners with Noise for {price_zone}')
     plt.legend()
-    plt.savefig(f"shallow_7day_smape_{price_zone}")
+    plt.savefig(f"shallow_7day_smape_{price_zone}", bbox_inches='tight', dpi=150)
     plt.show()
 
 def make_shallow_7_day_metrics(folder, file, price_zone):
     filepath = os.path.join(folder, file)
     if file == "DK1_ARIMA_predictions.csv":
-        df = pd.read_csv(filepath, decimal = ",", sep = ";")
+        df = pd.read_csv(filepath, decimal = ",", sep = ",")
     elif file == "DK2_ARIMA_predictions.csv":
-        df = pd.read_csv(filepath, decimal = ",", sep = ";")
+        df = pd.read_csv(filepath, decimal = ",", sep = ",")
     else:
         df = pd.read_csv(filepath, decimal = ",")
 
@@ -1038,6 +1041,7 @@ def shallow_7_day_rmse(lasso_list, svr_list, xgb_list,
                         arimax_list, price_zone):
     xpoints = ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7"]
 
+
     plt.plot(xpoints, lasso_list, label = "Lasso Regression")
     plt.plot(xpoints, svr_list, label = "Support Vector Regression")
     plt.plot(xpoints, xgb_list, label = "XGBoost")
@@ -1047,15 +1051,16 @@ def shallow_7_day_rmse(lasso_list, svr_list, xgb_list,
     plt.plot(xpoints, arimax_list, label = "ARIMAX")
     plt.xlabel('Prediction Day')
     plt.ylabel('RMSE (DKK/MWh)')
-    plt.title(f'7-Day RMSE (DKK/MWh) Development for Shallow Learners for {price_zone}')
+    plt.title(f'7-Day RMSE (DKK/MWh) Development for Shallow Learners with Noise for {price_zone}')
     plt.legend()
-    plt.savefig(f"shallow_7day_rmse_{price_zone}")
+    plt.savefig(f"shallow_7day_rmse_{price_zone}", bbox_inches='tight', dpi=150)
     plt.show()
 
 def shallow_7_day_mae(lasso_list, svr_list, xgb_list, 
                         lightgbm_list, rf_list, arima_list, 
                         arimax_list, price_zone):
     xpoints = ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7"]
+
 
     plt.plot(xpoints, lasso_list, label = "Lasso Regression")
     plt.plot(xpoints, svr_list, label = "Support Vector Regression")
@@ -1066,9 +1071,9 @@ def shallow_7_day_mae(lasso_list, svr_list, xgb_list,
     plt.plot(xpoints, arimax_list, label = "ARIMAX")
     plt.xlabel('Prediction Day')
     plt.ylabel('MAE (DKK/MWh)')
-    plt.title(f'7-Day MAE (DKK/MWh) Development for Shallow Learners for {price_zone}')
+    plt.title(f'7-Day MAE (DKK/MWh) Development for Shallow Learners with Noise for {price_zone}')
     plt.legend()
-    plt.savefig(f"shallow_7day_mae_{price_zone}")
+    plt.savefig(f"shallow_7day_mae_{price_zone}", bbox_inches='tight', dpi=150)
     plt.show()
 
 def generate_rmse_graph2(price_zone: str, xpoints: List[str],
